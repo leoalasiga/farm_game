@@ -1,9 +1,18 @@
 import Phaser from "phaser";
+import { type ItemId } from "../data/items";
+import { mineUnlockCost } from "../data/shop";
 import { buyItem, createWallet, sellItemFromInventory, type WalletState } from "../systems/economy/economy";
-import { createInventory, type InventoryState } from "../systems/inventory/inventory";
+import { createInventory, removeItem, type InventoryState } from "../systems/inventory/inventory";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
 import { completeObjective, createQuestState, type QuestState } from "../systems/quests/quests";
 import { saveToStorage, type GameSaveData } from "../systems/save/save";
+import {
+  canAffordMaterialCost,
+  createToolState,
+  toolUpgradeCosts,
+  upgradeTool,
+  type ToolState,
+} from "../systems/upgrades/upgrades";
 import { getTransition } from "../systems/world/transitions";
 
 export class VillageScene extends Phaser.Scene {
@@ -11,10 +20,14 @@ export class VillageScene extends Phaser.Scene {
   private inventory!: InventoryState;
   private interactKey?: Phaser.Input.Keyboard.Key;
   private forestGate?: Phaser.GameObjects.Rectangle;
+  private forgeKey?: Phaser.Input.Keyboard.Key;
+  private forgeStation?: Phaser.GameObjects.Rectangle;
+  private mineGate?: Phaser.GameObjects.Rectangle;
   private player?: Phaser.GameObjects.Rectangle;
   private questState!: QuestState;
   private saveKey?: Phaser.Input.Keyboard.Key;
   private sellKey?: Phaser.Input.Keyboard.Key;
+  private toolState!: ToolState;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wallet!: WalletState;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
@@ -36,14 +49,17 @@ export class VillageScene extends Phaser.Scene {
 
     this.inventory = (this.registry.get("inventoryState") as InventoryState | undefined) ?? createInventory(8);
     this.questState = (this.registry.get("questState") as QuestState | undefined) ?? createQuestState();
+    this.toolState = (this.registry.get("toolState") as ToolState | undefined) ?? createToolState();
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet();
     this.registry.set("inventoryState", this.inventory);
     this.registry.set("questState", this.questState);
+    this.registry.set("toolState", this.toolState);
     this.registry.set("walletState", this.wallet);
     completeObjective(this.questState, "meet_shopkeeper");
     this.registry.set("questText", this.questState.currentObjectiveText);
 
     this.buyKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+    this.forgeKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.U);
     this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.saveKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.sellKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S);
@@ -89,6 +105,11 @@ export class VillageScene extends Phaser.Scene {
       fontFamily: "monospace",
       fontSize: "16px",
     });
+    this.add.text(48, 208, "Stand by the forge and press U to unlock mine or upgrade axe", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "16px",
+    });
 
     this.farmGate = this.add.rectangle(248, 320, 28, 44, 0xc89b5b, 0.9);
     this.farmGate.setStrokeStyle(2, 0x5e3b1f);
@@ -100,6 +121,20 @@ export class VillageScene extends Phaser.Scene {
     this.forestGate = this.add.rectangle(440, 320, 32, 52, 0x4c8c4a, 0.95);
     this.forestGate.setStrokeStyle(2, 0x17311b);
     this.add.text(412, 352, "Forest", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.mineGate = this.add.rectangle(620, 320, 32, 52, 0x6c5f76, 0.95);
+    this.mineGate.setStrokeStyle(2, 0x1d1822);
+    this.add.text(596, 352, "Mine", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.forgeStation = this.add.rectangle(710, 220, 48, 36, 0xa0602d, 0.95);
+    this.forgeStation.setStrokeStyle(2, 0x44220d);
+    this.add.text(682, 252, "Forge", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -152,6 +187,23 @@ export class VillageScene extends Phaser.Scene {
       this.saveCurrentState("Saved in village");
     }
 
+    if (
+      this.forgeKey &&
+      Phaser.Input.Keyboard.JustDown(this.forgeKey) &&
+      this.player &&
+      this.forgeStation
+    ) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.forgeStation.x,
+        this.forgeStation.y,
+      );
+      if (distance < 52) {
+        this.tryForgeAction();
+      }
+    }
+
     if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey) && this.player) {
       if (this.farmGate) {
         const farmDistance = Phaser.Math.Distance.Between(
@@ -184,6 +236,22 @@ export class VillageScene extends Phaser.Scene {
           }
         }
       }
+
+      if (this.mineGate) {
+        const mineDistance = Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          this.mineGate.x,
+          this.mineGate.y,
+        );
+        if (mineDistance < 44) {
+          if (this.questState.unlockedZones.includes("mine")) {
+            this.scene.start("MineScene");
+          } else {
+            this.registry.set("saveStatus", "Mine is still sealed");
+          }
+        }
+      }
     }
   }
 
@@ -196,6 +264,10 @@ export class VillageScene extends Phaser.Scene {
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
     this.registry.set("questText", this.questState.currentObjectiveText);
+    this.registry.set(
+      "toolStatus",
+      `Axe Lv${this.toolState.axe.level} | Pickaxe Lv${this.toolState.pickaxe.level}`,
+    );
   }
 
   private saveCurrentState(status: string): void {
@@ -215,11 +287,66 @@ export class VillageScene extends Phaser.Scene {
       gold: this.wallet.gold,
       inventory: this.inventory.slots.map((slot) => (slot ? { ...slot } : null)),
       playerPosition: farmPlayerPosition,
+      questState: {
+        completedObjectives: [...this.questState.completedObjectives],
+        currentObjectiveText: this.questState.currentObjectiveText,
+        unlockedZones: [...this.questState.unlockedZones],
+      },
       timeMinutes: 0,
+      toolState: {
+        axe: { ...this.toolState.axe },
+        pickaxe: { ...this.toolState.pickaxe },
+      },
     };
 
     saveToStorage(saveData);
     this.registry.set("saveData", saveData);
     this.registry.set("saveStatus", status);
+  }
+
+  private tryForgeAction(): void {
+    if (!this.questState.unlockedZones.includes("mine")) {
+      if (this.tryPayMaterialCost(mineUnlockCost)) {
+        this.questState.unlockedZones.push("mine");
+        this.registry.set("saveStatus", "Mine unlocked");
+      } else {
+        this.registry.set("saveStatus", "Need 12 wood and 8 stone to unlock mine");
+      }
+      this.registry.set("questState", this.questState);
+      this.syncHud();
+      return;
+    }
+
+    if (this.toolState.axe.level === 1) {
+      const axeUpgradeCost = toolUpgradeCosts.axe;
+      if (this.tryPayMaterialCost(axeUpgradeCost) && upgradeTool(this.toolState, "axe", axeUpgradeCost)) {
+        this.registry.set("saveStatus", "Axe upgraded to level 2");
+      } else {
+        this.registry.set("saveStatus", "Need 10 wood and 5 copper ore to upgrade axe");
+      }
+      this.registry.set("toolState", this.toolState);
+      this.syncHud();
+      return;
+    }
+
+    this.registry.set("saveStatus", "Forge has nothing new yet");
+  }
+
+  private tryPayMaterialCost(cost: Partial<Record<keyof typeof mineUnlockCost | "copper_ore", number>>): boolean {
+    const payment = Object.fromEntries(
+      this.inventory.slots
+        .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
+        .map((slot) => [slot.itemId, slot.count]),
+    );
+
+    if (!canAffordMaterialCost(payment, cost)) {
+      return false;
+    }
+
+    for (const [itemId, amount] of Object.entries(cost)) {
+      removeItem(this.inventory, itemId as ItemId, amount ?? 0);
+    }
+
+    return true;
   }
 }

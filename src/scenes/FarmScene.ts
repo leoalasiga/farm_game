@@ -17,6 +17,7 @@ import { completeObjective, createQuestState, type QuestState } from "../systems
 import { loadFromStorage, saveToStorage, type GameSaveData } from "../systems/save/save";
 import { createStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
+import { createToolState, type ToolState } from "../systems/upgrades/upgrades";
 import { getTransition } from "../systems/world/transitions";
 
 const FARM_GRID_COLUMNS = 6;
@@ -37,6 +38,7 @@ export class FarmScene extends Phaser.Scene {
   private saveKey?: Phaser.Input.Keyboard.Key;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private wallet!: WalletState;
+  private toolState!: ToolState;
   private player?: Phaser.GameObjects.Rectangle;
   private stamina = createStamina(100);
   private villageGate?: Phaser.GameObjects.Rectangle;
@@ -63,6 +65,7 @@ export class FarmScene extends Phaser.Scene {
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet(12);
     this.stamina = (this.registry.get("staminaState") as typeof this.stamina | undefined) ?? createStamina(100);
     this.questState = (this.registry.get("questState") as QuestState | undefined) ?? createQuestState();
+    this.toolState = (this.registry.get("toolState") as ToolState | undefined) ?? createToolState();
     this.farmPlots =
       (this.registry.get("farmPlotsState") as FarmPlotsState | undefined) ??
       createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
@@ -76,6 +79,19 @@ export class FarmScene extends Phaser.Scene {
         return slot ? { ...slot } : null;
       });
       this.wallet.gold = saveData.gold;
+      if (saveData.questState) {
+        this.questState = {
+          completedObjectives: [...saveData.questState.completedObjectives],
+          currentObjectiveText: saveData.questState.currentObjectiveText,
+          unlockedZones: [...saveData.questState.unlockedZones],
+        };
+      }
+      if (saveData.toolState) {
+        this.toolState = {
+          axe: { ...saveData.toolState.axe },
+          pickaxe: { ...saveData.toolState.pickaxe },
+        };
+      }
 
       if (saveData.farmPlots) {
         this.farmPlots = {
@@ -91,6 +107,7 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("farmPlotsState", this.farmPlots);
     this.registry.set("staminaState", this.stamina);
     this.registry.set("questState", this.questState);
+    this.registry.set("toolState", this.toolState);
 
     this.cameras.main.setBackgroundColor("#355e3b");
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
@@ -352,7 +369,16 @@ export class FarmScene extends Phaser.Scene {
             y: this.player.y,
           }
         : undefined,
+      questState: {
+        completedObjectives: [...this.questState.completedObjectives],
+        currentObjectiveText: this.questState.currentObjectiveText,
+        unlockedZones: [...this.questState.unlockedZones],
+      },
       timeMinutes: this.clock.currentMinutes,
+      toolState: {
+        axe: { ...this.toolState.axe },
+        pickaxe: { ...this.toolState.pickaxe },
+      },
     };
 
     saveToStorage(saveData);

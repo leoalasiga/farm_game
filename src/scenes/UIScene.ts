@@ -7,6 +7,7 @@ export class UIScene extends Phaser.Scene {
   private questText?: Phaser.GameObjects.Text;
   private saveStatusText?: Phaser.GameObjects.Text;
   private staminaText?: Phaser.GameObjects.Text;
+  private toolStatusText?: Phaser.GameObjects.Text;
   private timeText?: Phaser.GameObjects.Text;
 
   constructor() {
@@ -36,7 +37,12 @@ export class UIScene extends Phaser.Scene {
       fontSize: "14px",
     });
     this.questText.setScrollFactor(0);
-    this.saveStatusText = this.add.text(16, 160, "No save yet", {
+    this.toolStatusText = this.add.text(16, 160, "Axe Lv1 | Pickaxe Lv1", {
+      ...textStyle,
+      fontSize: "14px",
+    });
+    this.toolStatusText.setScrollFactor(0);
+    this.saveStatusText = this.add.text(16, 184, "No save yet", {
       ...textStyle,
       fontSize: "14px",
     });
@@ -57,6 +63,7 @@ export class UIScene extends Phaser.Scene {
     this.goldText?.setText(`Gold ${this.registry.get("gold") ?? 0}g`);
     this.inventoryText?.setText(this.registry.get("inventory") ?? "Inventory empty");
     this.questText?.setText(`Quest: ${this.registry.get("questText") ?? "Harvest your first crop on the farm"}`);
+    this.toolStatusText?.setText(this.registry.get("toolStatus") ?? "Axe Lv1 | Pickaxe Lv1");
     this.saveStatusText?.setText(this.registry.get("saveStatus") ?? "No save yet");
   }
 }

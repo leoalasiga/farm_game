@@ -11,6 +11,7 @@ export interface ResourceNodeDefinition {
   id: ResourceNodeId;
   label: string;
   staminaCost: number;
+  zone: "forest" | "mine";
 }
 
 export const resourceNodeData: Record<ResourceNodeId, ResourceNodeDefinition> = {
@@ -21,6 +22,7 @@ export const resourceNodeData: Record<ResourceNodeId, ResourceNodeDefinition> = 
     id: "bush",
     label: "Berry Bush",
     staminaCost: 4,
+    zone: "forest",
   },
   copper_vein: {
     color: 0xc77d42,
@@ -29,6 +31,7 @@ export const resourceNodeData: Record<ResourceNodeId, ResourceNodeDefinition> = 
     id: "copper_vein",
     label: "Copper Vein",
     staminaCost: 8,
+    zone: "mine",
   },
   stone: {
     color: 0x9ea3a8,
@@ -37,6 +40,7 @@ export const resourceNodeData: Record<ResourceNodeId, ResourceNodeDefinition> = 
     id: "stone",
     label: "Stone",
     staminaCost: 6,
+    zone: "forest",
   },
   tree: {
     color: 0x2e6f40,
@@ -45,5 +49,6 @@ export const resourceNodeData: Record<ResourceNodeId, ResourceNodeDefinition> = 
     id: "tree",
     label: "Tree",
     staminaCost: 5,
+    zone: "forest",
   },
 };

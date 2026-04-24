@@ -1,5 +1,7 @@
 import { type FarmPlot } from "../farming/farmPlots";
 import { type InventorySlot } from "../inventory/inventory";
+import { type QuestState } from "../quests/quests";
+import { type ToolState } from "../upgrades/upgrades";
 
 export const SAVE_STORAGE_KEY = "pixel-farm-adventure-save";
 
@@ -16,7 +18,9 @@ export interface GameSaveData {
     x: number;
     y: number;
   };
+  questState?: QuestState;
   timeMinutes?: number;
+  toolState?: ToolState;
 }
 
 export function serializeSave(source: GameSaveData): string {

@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { BootScene } from "../scenes/BootScene";
 import { FarmScene } from "../scenes/FarmScene";
 import { ForestScene } from "../scenes/ForestScene";
+import { MineScene } from "../scenes/MineScene";
 import { UIScene } from "../scenes/UIScene";
 import { VillageScene } from "../scenes/VillageScene";
 
@@ -18,7 +19,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, FarmScene, ForestScene, VillageScene, UIScene],
+  scene: [BootScene, FarmScene, ForestScene, MineScene, VillageScene, UIScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

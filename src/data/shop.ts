@@ -1,4 +1,5 @@
 import { type ItemId } from "./items";
+import { type MaterialCost } from "../systems/upgrades/upgrades";
 
 export interface ShopItem {
   buyPrice: number;
@@ -38,3 +39,8 @@ export const shopInventory: ShopItem[] = [
     sellPrice: 12,
   },
 ];
+
+export const mineUnlockCost: MaterialCost = {
+  stone: 8,
+  wood: 12,
+};

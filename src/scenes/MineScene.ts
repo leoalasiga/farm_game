@@ -1,21 +1,21 @@
 import Phaser from "phaser";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
-import { resourceNodeData, type ResourceNodeId } from "../data/resources";
+import { resourceNodeData } from "../data/resources";
 import { gatherNode } from "../systems/gathering/gathering";
-import { createInventory, type InventoryState, addItem } from "../systems/inventory/inventory";
+import { addItem, createInventory, type InventoryState } from "../systems/inventory/inventory";
 import { createStamina, spendStamina, type StaminaState } from "../systems/stamina/stamina";
 import { createToolState, getToolEfficiency, type ToolState } from "../systems/upgrades/upgrades";
 
-interface ForestNodeSprite {
-  id: ResourceNodeId;
+interface MineNodeSprite {
+  id: "stone" | "copper_vein";
   sprite: Phaser.GameObjects.Rectangle;
 }
 
-export class ForestScene extends Phaser.Scene {
+export class MineScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private gatherKey?: Phaser.Input.Keyboard.Key;
   private inventory!: InventoryState;
-  private nodes: ForestNodeSprite[] = [];
+  private nodes: MineNodeSprite[] = [];
   private player?: Phaser.GameObjects.Rectangle;
   private stamina!: StaminaState;
   private toolState!: ToolState;
@@ -23,11 +23,11 @@ export class ForestScene extends Phaser.Scene {
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
 
   constructor() {
-    super("ForestScene");
+    super("MineScene");
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor("#24462c");
+    this.cameras.main.setBackgroundColor("#2f2b33");
     this.physics.world.setBounds(0, 0, 960, 540);
     this.cameras.main.setBounds(0, 0, 960, 540);
 
@@ -38,7 +38,7 @@ export class ForestScene extends Phaser.Scene {
     this.registry.set("staminaState", this.stamina);
     this.registry.set("toolState", this.toolState);
 
-    const playerModel = createPlayerModel({ x: 140, y: 300 });
+    const playerModel = createPlayerModel({ x: 120, y: 320 });
     this.player = this.add.rectangle(playerModel.x, playerModel.y, 14, 14, 0xf7f3c8);
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -52,27 +52,27 @@ export class ForestScene extends Phaser.Scene {
       Phaser.Input.Keyboard.Key
     >;
 
-    this.add.text(48, 48, "Forest", {
+    this.add.text(48, 48, "Mine", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "24px",
     });
-    this.add.text(48, 80, "Walk to a node and press E to gather, or near gate to return", {
+    this.add.text(48, 80, "Press E near ore to gather, or near gate to return", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
 
-    this.createNode("tree", 280, 220, 32, 56);
-    this.createNode("bush", 420, 300, 28, 28);
-    this.createNode("stone", 600, 240, 30, 30);
-    this.villageGate = this.add.rectangle(160, 340, 28, 52, 0xc89b5b, 0.95);
+    this.createNode("stone", 360, 260, 36, 36);
+    this.createNode("copper_vein", 540, 240, 40, 44);
+    this.villageGate = this.add.rectangle(180, 340, 28, 52, 0xc89b5b, 0.95);
     this.villageGate.setStrokeStyle(2, 0x5e3b1f);
-    this.add.text(132, 372, "Village", {
+    this.add.text(152, 372, "Village", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
+
     this.syncHud();
   }
 
@@ -111,7 +111,7 @@ export class ForestScene extends Phaser.Scene {
   }
 
   private createNode(
-    id: ResourceNodeId,
+    id: "stone" | "copper_vein",
     x: number,
     y: number,
     width: number,
@@ -119,7 +119,7 @@ export class ForestScene extends Phaser.Scene {
   ): void {
     const definition = resourceNodeData[id];
     const sprite = this.add.rectangle(x, y, width, height, definition.color, 0.95);
-    sprite.setStrokeStyle(2, 0x18201a);
+    sprite.setStrokeStyle(2, 0x161214);
     this.add.text(x - width / 2, y + height / 2 + 8, definition.label, {
       color: "#f7f3c8",
       fontFamily: "monospace",
@@ -156,9 +156,9 @@ export class ForestScene extends Phaser.Scene {
       return;
     }
 
-    const result = gatherNode(nearestNode.id, getToolEfficiency(this.toolState, "axe"));
+    const result = gatherNode(nearestNode.id, getToolEfficiency(this.toolState, "pickaxe"));
     if (!spendStamina(this.stamina, result.staminaCost)) {
-      this.registry.set("saveStatus", "Too tired to gather");
+      this.registry.set("saveStatus", "Too tired to mine");
       return;
     }
 
@@ -166,7 +166,10 @@ export class ForestScene extends Phaser.Scene {
       addItem(this.inventory, drop.itemId, drop.count);
     }
 
-    this.registry.set("saveStatus", `Gathered ${result.drops.map((drop) => `${drop.itemId} x${drop.count}`).join(", ")}`);
+    this.registry.set(
+      "saveStatus",
+      `Mined ${result.drops.map((drop) => `${drop.itemId} x${drop.count}`).join(", ")}`,
+    );
     this.syncHud();
   }
 
