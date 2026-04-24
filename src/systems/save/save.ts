@@ -1,3 +1,4 @@
+import { type CropId } from "../../data/crops";
 import { type FarmPlot } from "../farming/farmPlots";
 import { type InventorySlot } from "../inventory/inventory";
 import { type QuestState } from "../quests/quests";
@@ -19,6 +20,7 @@ export interface GameSaveData {
     y: number;
   };
   questState?: QuestState;
+  selectedCropId?: CropId;
   timeMinutes?: number;
   toolState?: ToolState;
 }

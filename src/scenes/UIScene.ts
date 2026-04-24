@@ -8,6 +8,7 @@ import {
 } from "../ui/pixelHud";
 
 export class UIScene extends Phaser.Scene {
+  private currentSeedText?: Phaser.GameObjects.Text;
   private dayText?: Phaser.GameObjects.Text;
   private goldText?: Phaser.GameObjects.Text;
   private inventoryText?: Phaser.GameObjects.Text;
@@ -39,17 +40,20 @@ export class UIScene extends Phaser.Scene {
     this.goldText = this.pinToHud(
       this.add.text(statusX + 126, statusPanel.y + 58, "金币 0g", createHudTextStyle("label")),
     );
+    this.currentSeedText = this.pinToHud(
+      this.add.text(statusX, statusPanel.y + 86, "当前种子：萝卜种子 x0", createHudTextStyle("body")),
+    );
     this.inventoryText = this.pinToHud(
-      this.add.text(statusX, statusPanel.y + 92, "背包：空", createHudTextStyle("body")),
+      this.add.text(statusX, statusPanel.y + 118, "背包：空", createHudTextStyle("body")),
     );
     this.questText = this.pinToHud(
-      this.add.text(statusX, statusPanel.y + 132, "任务：在农场收获你的第一批作物", createHudTextStyle("body")),
+      this.add.text(statusX, statusPanel.y + 158, "任务：在农场收获你的第一批作物", createHudTextStyle("body")),
     );
     this.toolStatusText = this.pinToHud(
-      this.add.text(statusX, statusPanel.y + 182, "工具：斧头 Lv1 | 镐子 Lv1", createHudTextStyle("body")),
+      this.add.text(statusX, statusPanel.y + 214, "工具：斧头 Lv1 | 镐子 Lv1", createHudTextStyle("body")),
     );
     this.saveStatusText = this.pinToHud(
-      this.add.text(statusX, statusPanel.y + 214, "存档：还没有存档", createHudTextStyle("body")),
+      this.add.text(statusX, statusPanel.y + 246, "存档：还没有存档", createHudTextStyle("body")),
     );
 
     this.pinToHud(
@@ -74,6 +78,7 @@ export class UIScene extends Phaser.Scene {
     this.timeText?.setText(`时间 ${this.registry.get("time") ?? "06:00"}`);
     this.staminaText?.setText(`体力 ${this.registry.get("stamina") ?? "100/100"}`);
     this.goldText?.setText(`金币 ${this.registry.get("gold") ?? 0}g`);
+    this.currentSeedText?.setText(this.registry.get("selectedSeed") ?? "当前种子：萝卜种子 x0");
     this.inventoryText?.setText(this.registry.get("inventory") ?? "背包：空");
     this.questText?.setText(
       `任务：${this.registry.get("questText") ?? "在农场收获你的第一批作物"}`,

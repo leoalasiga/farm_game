@@ -14,12 +14,12 @@ export const shopInventory: ShopItem[] = [
     sellPrice: 1,
   },
   {
-    buyPrice: 6,
+    buyPrice: 5,
     itemId: "potato_seed",
     sellPrice: 2,
   },
   {
-    buyPrice: 12,
+    buyPrice: 8,
     itemId: "blueberry_seed",
     sellPrice: 4,
   },
@@ -31,12 +31,12 @@ export const shopInventory: ShopItem[] = [
   {
     buyPrice: 0,
     itemId: "potato",
-    sellPrice: 8,
+    sellPrice: 9,
   },
   {
     buyPrice: 0,
     itemId: "blueberry",
-    sellPrice: 12,
+    sellPrice: 14,
   },
 ];
 

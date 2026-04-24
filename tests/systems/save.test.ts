@@ -7,10 +7,12 @@ describe("save system", () => {
       day: 2,
       gold: 10,
       inventory: [{ itemId: "radish", count: 3 }],
+      selectedCropId: "potato",
     };
     const encoded = serializeSave(source);
     const restored = deserializeSave(encoded);
     expect(restored.day).toBe(2);
     expect(restored.inventory[0]?.count).toBe(3);
+    expect(restored.selectedCropId).toBe("potato");
   });
 });

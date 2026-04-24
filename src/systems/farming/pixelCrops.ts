@@ -18,21 +18,21 @@ type CropDisplayStage = Extract<FarmPlotStage, "growing" | "ready">;
 const cropPixelsByStage: Record<CropId, Record<CropDisplayStage, CropPixel[]>> = {
   blueberry: {
     growing: [
-      { color: "#5aa05a", x: 2, y: 4 },
-      { color: "#7ccc66", x: 3, y: 3 },
-      { color: "#5aa05a", x: 3, y: 4 },
-      { color: "#7ccc66", x: 4, y: 3 },
-      { color: "#5aa05a", x: 4, y: 4 },
+      { color: "#6aa96a", x: 2, y: 4 },
+      { color: "#90d981", x: 3, y: 3 },
+      { color: "#6aa96a", x: 3, y: 4 },
+      { color: "#90d981", x: 4, y: 3 },
+      { color: "#6aa96a", x: 4, y: 4 },
     ],
     ready: [
       { color: "#6dc067", x: 2, y: 4 },
       { color: "#6dc067", x: 3, y: 3 },
       { color: "#6dc067", x: 4, y: 3 },
-      { color: "#87d06f", x: 2, y: 2 },
-      { color: "#87d06f", x: 4, y: 2 },
-      { color: "#5f7dff", x: 2, y: 1 },
-      { color: "#4f65da", x: 3, y: 1 },
-      { color: "#5f7dff", x: 4, y: 1 },
+      { color: "#9ae083", x: 2, y: 2 },
+      { color: "#9ae083", x: 4, y: 2 },
+      { color: "#6e89ff", x: 2, y: 1 },
+      { color: "#5873ea", x: 3, y: 1 },
+      { color: "#6e89ff", x: 4, y: 1 },
     ],
   },
   potato: {
@@ -47,11 +47,11 @@ const cropPixelsByStage: Record<CropId, Record<CropDisplayStage, CropPixel[]>> =
       { color: "#6dc067", x: 2, y: 4 },
       { color: "#6dc067", x: 3, y: 3 },
       { color: "#6dc067", x: 4, y: 3 },
-      { color: "#8ed673", x: 2, y: 2 },
-      { color: "#8ed673", x: 4, y: 2 },
-      { color: "#b88f57", x: 2, y: 1 },
-      { color: "#cfa066", x: 3, y: 1 },
-      { color: "#b88f57", x: 4, y: 1 },
+      { color: "#a0e282", x: 2, y: 2 },
+      { color: "#a0e282", x: 4, y: 2 },
+      { color: "#c89d61", x: 2, y: 1 },
+      { color: "#ddb071", x: 3, y: 1 },
+      { color: "#c89d61", x: 4, y: 1 },
     ],
   },
   radish: {
@@ -63,12 +63,12 @@ const cropPixelsByStage: Record<CropId, Record<CropDisplayStage, CropPixel[]>> =
       { color: "#6dc067", x: 4, y: 4 },
     ],
     ready: [
-      { color: "#58a15d", x: 3, y: 4 },
+      { color: "#63b169", x: 3, y: 4 },
       { color: "#6dc067", x: 2, y: 3 },
       { color: "#6dc067", x: 4, y: 3 },
-      { color: "#7fd27a", x: 3, y: 3 },
-      { color: "#7fd27a", x: 2, y: 2 },
-      { color: "#7fd27a", x: 4, y: 2 },
+      { color: "#9be28f", x: 3, y: 3 },
+      { color: "#9be28f", x: 2, y: 2 },
+      { color: "#9be28f", x: 4, y: 2 },
       { color: "#f3c6de", x: 2, y: 1 },
       { color: "#f7e7a1", x: 3, y: 1 },
       { color: "#f3c6de", x: 4, y: 1 },
@@ -84,31 +84,31 @@ export function getCropPixels(cropId: CropId, stage: CropDisplayStage): CropPixe
 export function getPlotPalette(stage: FarmPlotStage, watered: boolean): PlotPalette {
   if (stage === "empty") {
     return {
-      border: "#2f2417",
+      border: "#6c5b36",
       moisture: "#447a67",
-      soil: "#7a6845",
+      soil: "#b79b6a",
     };
   }
 
   if (stage === "tilled") {
     return {
-      border: "#322113",
+      border: "#684123",
       moisture: "#447a67",
-      soil: watered ? "#705532" : "#8a6738",
+      soil: watered ? "#8d6d48" : "#a97d45",
     };
   }
 
   if (stage === "ready") {
     return {
-      border: "#2a2416",
+      border: "#61492e",
       moisture: "#447a67",
-      soil: watered ? "#5c4a2f" : "#6a5538",
+      soil: watered ? "#84694a" : "#957553",
     };
   }
 
   return {
-    border: "#2a2416",
+    border: "#61492e",
     moisture: "#447a67",
-    soil: watered ? "#5f4b31" : "#725a38",
+    soil: watered ? "#86694b" : "#9a7b57",
   };
 }

@@ -1,10 +1,22 @@
 import Phaser from "phaser";
+import { cropData, type CropId } from "../data/crops";
 import { type ItemId } from "../data/items";
 import { itemData } from "../data/items";
 import { mineUnlockCost } from "../data/shop";
-import { buyItem, createWallet, sellItemFromInventory, type WalletState } from "../systems/economy/economy";
-import { createInventory, removeItem, type InventoryState } from "../systems/inventory/inventory";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
+import {
+  buyItem,
+  createWallet,
+  sellItemFromInventory,
+  type WalletState,
+} from "../systems/economy/economy";
+import {
+  createSeedSelection,
+  getSelectedSeedItemId,
+  selectCropBySlot,
+  type SeedSelectionState,
+} from "../systems/farming/seedSelection";
+import { createInventory, removeItem, type InventoryState } from "../systems/inventory/inventory";
 import { completeObjective, createQuestState, type QuestState } from "../systems/quests/quests";
 import { saveToStorage, type GameSaveData } from "../systems/save/save";
 import {
@@ -18,21 +30,23 @@ import { getTransition } from "../systems/world/transitions";
 
 export class VillageScene extends Phaser.Scene {
   private buyKey?: Phaser.Input.Keyboard.Key;
-  private inventory!: InventoryState;
-  private interactKey?: Phaser.Input.Keyboard.Key;
+  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+  private farmGate?: Phaser.GameObjects.Rectangle;
   private forestGate?: Phaser.GameObjects.Rectangle;
   private forgeKey?: Phaser.Input.Keyboard.Key;
   private forgeStation?: Phaser.GameObjects.Rectangle;
+  private interactKey?: Phaser.Input.Keyboard.Key;
+  private inventory!: InventoryState;
   private mineGate?: Phaser.GameObjects.Rectangle;
   private player?: Phaser.GameObjects.Rectangle;
   private questState!: QuestState;
   private saveKey?: Phaser.Input.Keyboard.Key;
+  private seedHotkeys?: Phaser.Input.Keyboard.Key[];
+  private seedSelection: SeedSelectionState = createSeedSelection();
   private sellKey?: Phaser.Input.Keyboard.Key;
   private toolState!: ToolState;
-  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wallet!: WalletState;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
-  private farmGate?: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super("VillageScene");
@@ -44,7 +58,7 @@ export class VillageScene extends Phaser.Scene {
     const spawn = getTransition(entryTransitionId).spawn;
     const playerModel = createPlayerModel({ x: spawn.x, y: spawn.y });
 
-    this.cameras.main.setBackgroundColor("#4d5d76");
+    this.cameras.main.setBackgroundColor("#6d7f96");
     this.physics.world.setBounds(0, 0, 960, 540);
     this.cameras.main.setBounds(0, 0, 960, 540);
 
@@ -52,10 +66,16 @@ export class VillageScene extends Phaser.Scene {
     this.questState = (this.registry.get("questState") as QuestState | undefined) ?? createQuestState();
     this.toolState = (this.registry.get("toolState") as ToolState | undefined) ?? createToolState();
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet();
+    this.seedSelection = createSeedSelection(
+      (this.registry.get("selectedCropId") as CropId | undefined) ?? "radish",
+    );
+
     this.registry.set("inventoryState", this.inventory);
     this.registry.set("questState", this.questState);
+    this.registry.set("selectedCropId", this.seedSelection.selectedCropId);
     this.registry.set("toolState", this.toolState);
     this.registry.set("walletState", this.wallet);
+
     completeObjective(this.questState, "meet_shopkeeper");
     this.registry.set("questText", this.questState.currentObjectiveText);
 
@@ -64,6 +84,11 @@ export class VillageScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.saveKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.sellKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.seedHotkeys = [
+      this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
+      this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
+      this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
+    ].filter((key): key is Phaser.Input.Keyboard.Key => Boolean(key));
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.wasd = this.input.keyboard?.addKeys("W,A,S,D") as Record<
       "W" | "A" | "S" | "D",
@@ -81,60 +106,65 @@ export class VillageScene extends Phaser.Scene {
       fontFamily: "monospace",
       fontSize: "24px",
     });
-    this.add.text(48, 88, "按 B 购买 1 个萝卜种子（3 金）", {
+    this.add.text(48, 88, "1 萝卜：种子 3g / 卖出 5g", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 112, "按 S 卖出 1 根萝卜（5 金）", {
+    this.add.text(48, 112, "2 土豆：种子 5g / 卖出 9g", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 136, "走到门边按 E 返回农场", {
+    this.add.text(48, 136, "3 蓝莓：种子 8g / 卖出 14g", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 160, "按 K 保存游戏", {
+    this.add.text(48, 160, "按 B 买当前种子，按 S 卖当前作物", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 184, "完成新手任务后，森林大门会打开", {
+    this.add.text(48, 184, "走到门边按 E 返回农场，按 K 保存游戏", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 208, "走到锻造台边按 U，可以解锁矿洞或升级斧头", {
+    this.add.text(48, 208, "完成新手任务后，森林大门会打开", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "16px",
+    });
+    this.add.text(48, 232, "走到锻造台边按 U，可以解锁矿洞或升级斧头", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
 
-    this.farmGate = this.add.rectangle(248, 320, 28, 44, 0xc89b5b, 0.9);
-    this.farmGate.setStrokeStyle(2, 0x5e3b1f);
+    this.farmGate = this.add.rectangle(248, 320, 28, 44, 0xe1b975, 0.95);
+    this.farmGate.setStrokeStyle(2, 0x7d5225);
     this.add.text(222, 348, "农场", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
-    this.forestGate = this.add.rectangle(440, 320, 32, 52, 0x4c8c4a, 0.95);
-    this.forestGate.setStrokeStyle(2, 0x17311b);
+    this.forestGate = this.add.rectangle(440, 320, 32, 52, 0x76b971, 0.95);
+    this.forestGate.setStrokeStyle(2, 0x27562c);
     this.add.text(412, 352, "森林", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
-    this.mineGate = this.add.rectangle(620, 320, 32, 52, 0x6c5f76, 0.95);
-    this.mineGate.setStrokeStyle(2, 0x1d1822);
+    this.mineGate = this.add.rectangle(620, 320, 32, 52, 0x8f82a1, 0.95);
+    this.mineGate.setStrokeStyle(2, 0x2d2636);
     this.add.text(596, 352, "矿洞", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
-    this.forgeStation = this.add.rectangle(710, 220, 48, 36, 0xa0602d, 0.95);
-    this.forgeStation.setStrokeStyle(2, 0x44220d);
+    this.forgeStation = this.add.rectangle(710, 220, 48, 36, 0xb6783d, 0.95);
+    this.forgeStation.setStrokeStyle(2, 0x5a2f11);
     this.add.text(682, 252, "锻造台", {
       color: "#f7f3c8",
       fontFamily: "monospace",
@@ -169,17 +199,31 @@ export class VillageScene extends Phaser.Scene {
       body.velocity.normalize().scale(PLAYER_SPEED);
     }
 
+    this.handleSeedHotkeys();
+
     if (this.buyKey && Phaser.Input.Keyboard.JustDown(this.buyKey)) {
-      buyItem(this.wallet, this.inventory, "radish_seed", 1);
+      const selectedSeedItemId = getSelectedSeedItemId(this.seedSelection);
+      const selectedCrop = this.seedSelection.selectedCropId;
+      const result = buyItem(this.wallet, this.inventory, selectedSeedItemId, 1);
+      this.registry.set(
+        "saveStatus",
+        result.ok
+          ? `买下了1个${itemData[selectedSeedItemId].name}`
+          : `金币不够，买不起${cropData[selectedCrop].name}种子`,
+      );
       this.syncHud();
     }
 
     if (this.sellKey && Phaser.Input.Keyboard.JustDown(this.sellKey)) {
-      const result = sellItemFromInventory(this.wallet, this.inventory, "radish", 1);
+      const selectedCrop = this.seedSelection.selectedCropId;
+      const result = sellItemFromInventory(this.wallet, this.inventory, selectedCrop, 1);
       if (result.ok) {
         completeObjective(this.questState, "sell_first_crop");
         this.registry.set("questState", this.questState);
         this.registry.set("questText", this.questState.currentObjectiveText);
+        this.registry.set("saveStatus", `卖出了1个${cropData[selectedCrop].name}`);
+      } else {
+        this.registry.set("saveStatus", `背包里没有可卖的${cropData[selectedCrop].name}`);
       }
       this.syncHud();
     }
@@ -256,15 +300,42 @@ export class VillageScene extends Phaser.Scene {
     }
   }
 
+  private handleSeedHotkeys(): void {
+    if (!this.seedHotkeys) {
+      return;
+    }
+
+    this.seedHotkeys.forEach((key, index) => {
+      if (!Phaser.Input.Keyboard.JustDown(key)) {
+        return;
+      }
+
+      if (selectCropBySlot(this.seedSelection, index + 1)) {
+        this.registry.set("selectedCropId", this.seedSelection.selectedCropId);
+        this.registry.set("saveStatus", `当前交易作物切换为${cropData[this.seedSelection.selectedCropId].name}`);
+        this.syncHud();
+      }
+    });
+  }
+
   private syncHud(): void {
     const summary = this.inventory.slots
       .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
       .map((slot) => `${itemData[slot.itemId].name} x${slot.count}`)
       .join(", ");
+    const selectedSeedItemId = getSelectedSeedItemId(this.seedSelection);
+    const selectedSeedCount =
+      this.inventory.slots
+        .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
+        .find((slot) => slot.itemId === selectedSeedItemId)?.count ?? 0;
 
     this.registry.set("gold", this.wallet.gold);
-    this.registry.set("inventory", summary ? `背包：${summary}` : "背包为空");
+    this.registry.set("inventory", summary ? `背包：${summary}` : "背包：空");
     this.registry.set("questText", this.questState.currentObjectiveText);
+    this.registry.set(
+      "selectedSeed",
+      `当前种子：${itemData[selectedSeedItemId].name} x${selectedSeedCount}`,
+    );
     this.registry.set(
       "toolStatus",
       `斧头 Lv${this.toolState.axe.level} | 镐子 Lv${this.toolState.pickaxe.level}`,
@@ -293,6 +364,7 @@ export class VillageScene extends Phaser.Scene {
         currentObjectiveText: this.questState.currentObjectiveText,
         unlockedZones: [...this.questState.unlockedZones],
       },
+      selectedCropId: this.seedSelection.selectedCropId,
       timeMinutes: 0,
       toolState: {
         axe: { ...this.toolState.axe },

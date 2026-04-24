@@ -25,10 +25,10 @@ export const PIXEL_HUD_LAYOUT = {
     height: 124,
     width: 254,
     x: 688,
-    y: 280,
+    y: 314,
   } satisfies PanelBounds,
   statusPanel: {
-    height: 244,
+    height: 278,
     width: 254,
     x: 688,
     y: 18,
@@ -37,16 +37,17 @@ export const PIXEL_HUD_LAYOUT = {
 };
 
 export const HUD_PANEL_COLORS = {
-  border: 0x19311f,
-  fill: 0x24492d,
-  highlight: 0x4f8f5a,
-  inner: 0x1a3421,
+  border: 0x284931,
+  fill: 0x3a6a43,
+  highlight: 0x79b06b,
+  inner: 0x21482b,
   shadow: 0x0c160f,
-  title: 0xc9b26d,
+  title: 0xe6d17e,
 };
 
 export const HUD_CONTROL_LINES = [
   "WASD / 方向键：移动",
+  "1 / 2 / 3：切换种子",
   "E：互动     K：存档",
   "点击对象：执行场景操作",
   "N：在农场睡觉推进新一天",
