@@ -1,11 +1,15 @@
 import Phaser from "phaser";
 import farmMap from "../maps/farm.json";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
+import { createStamina } from "../systems/stamina/stamina";
+import { advanceClock, createClock, formatClock } from "../systems/time/time";
 
 export class FarmScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+  private clock = createClock();
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private player?: Phaser.GameObjects.Rectangle;
+  private stamina = createStamina(100);
 
   constructor() {
     super("FarmScene");
@@ -45,6 +49,10 @@ export class FarmScene extends Phaser.Scene {
       Phaser.Input.Keyboard.Key
     >;
 
+    this.registry.set("day", this.clock.day);
+    this.registry.set("time", formatClock(this.clock));
+    this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
+
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.add.text(16, 16, "Farm Prototype", {
       color: "#f7f3c8",
@@ -57,6 +65,11 @@ export class FarmScene extends Phaser.Scene {
     if (!this.player || !this.cursors || !this.wasd) {
       return;
     }
+
+    advanceClock(this.clock, 0.05);
+    this.registry.set("day", this.clock.day);
+    this.registry.set("time", formatClock(this.clock));
+    this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0);
