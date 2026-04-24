@@ -1,0 +1,35 @@
+const context2D = {
+  fillRect: () => undefined,
+  clearRect: () => undefined,
+  getImageData: () => ({
+    data: new Uint8ClampedArray(4),
+  }),
+  putImageData: () => undefined,
+  createImageData: () => [],
+  setTransform: () => undefined,
+  drawImage: () => undefined,
+  save: () => undefined,
+  restore: () => undefined,
+  beginPath: () => undefined,
+  moveTo: () => undefined,
+  lineTo: () => undefined,
+  closePath: () => undefined,
+  stroke: () => undefined,
+  translate: () => undefined,
+  scale: () => undefined,
+  rotate: () => undefined,
+  arc: () => undefined,
+  fill: () => undefined,
+  measureText: () => ({ width: 0 }),
+  transform: () => undefined,
+  rect: () => undefined,
+  clip: () => undefined,
+  fillText: () => undefined,
+  strokeText: () => undefined,
+  canvas: document.createElement("canvas"),
+  fillStyle: "#000000",
+};
+
+Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+  value: () => context2D,
+});
