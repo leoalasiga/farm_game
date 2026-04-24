@@ -34,8 +34,9 @@ import { gameConfig } from "../../src/game/config";
 
 describe("gameConfig", () => {
   it("defines the base game canvas", () => {
+    const sceneConfig = Array.isArray(gameConfig.scene) ? gameConfig.scene : [gameConfig.scene];
     expect(gameConfig.width).toBeGreaterThan(0);
     expect(gameConfig.height).toBeGreaterThan(0);
-    expect(gameConfig.scene.length).toBeGreaterThan(0);
+    expect(sceneConfig.length).toBeGreaterThan(0);
   });
 });

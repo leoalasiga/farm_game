@@ -1,12 +1,32 @@
 import Phaser from "phaser";
 import farmMap from "../maps/farm.json";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
+import {
+  advanceFarmDay,
+  createFarmPlots,
+  getPlot,
+  harvestPlot,
+  plantCrop,
+  tillPlot,
+  waterPlot,
+} from "../systems/farming/farmPlots";
+import { createInventory } from "../systems/inventory/inventory";
 import { createStamina } from "../systems/stamina/stamina";
-import { advanceClock, createClock, formatClock } from "../systems/time/time";
+import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
+
+const FARM_GRID_COLUMNS = 6;
+const FARM_GRID_ROWS = 4;
+const FARM_PLOT_SIZE = 24;
+const FARM_PLOT_ORIGIN_X = 96;
+const FARM_PLOT_ORIGIN_Y = 160;
 
 export class FarmScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private clock = createClock();
+  private farmPlots = createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
+  private inventory = createInventory(8);
+  private nextDayKey?: Phaser.Input.Keyboard.Key;
+  private plotSprites: Phaser.GameObjects.Rectangle[] = [];
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private player?: Phaser.GameObjects.Rectangle;
   private stamina = createStamina(100);
@@ -48,10 +68,15 @@ export class FarmScene extends Phaser.Scene {
       "W" | "A" | "S" | "D",
       Phaser.Input.Keyboard.Key
     >;
+    this.nextDayKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.N);
 
     this.registry.set("day", this.clock.day);
     this.registry.set("time", formatClock(this.clock));
+    this.registry.set("inventory", "Inventory empty");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
+
+    this.createFarmGrid();
+    this.input.on("pointerdown", this.handleFarmPointerDown, this);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.add.text(16, 16, "Farm Prototype", {
@@ -59,6 +84,17 @@ export class FarmScene extends Phaser.Scene {
       fontFamily: "monospace",
       fontSize: "18px",
     });
+    this.add.text(16, 40, "Click plots to till, plant, and water", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.add.text(16, 58, "Press N to sleep and grow crops", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.syncInventoryHud();
   }
 
   update(): void {
@@ -70,6 +106,14 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("day", this.clock.day);
     this.registry.set("time", formatClock(this.clock));
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
+
+    if (this.nextDayKey && Phaser.Input.Keyboard.JustDown(this.nextDayKey)) {
+      advanceFarmDay(this.farmPlots);
+      startNextDay(this.clock);
+      this.refreshFarmGrid();
+      this.registry.set("day", this.clock.day);
+      this.registry.set("time", formatClock(this.clock));
+    }
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0);
@@ -92,5 +136,79 @@ export class FarmScene extends Phaser.Scene {
     }
 
     body.velocity.normalize().scale(PLAYER_SPEED);
+  }
+
+  private createFarmGrid(): void {
+    for (let y = 0; y < FARM_GRID_ROWS; y += 1) {
+      for (let x = 0; x < FARM_GRID_COLUMNS; x += 1) {
+        const plot = this.add.rectangle(
+          FARM_PLOT_ORIGIN_X + x * FARM_PLOT_SIZE,
+          FARM_PLOT_ORIGIN_Y + y * FARM_PLOT_SIZE,
+          FARM_PLOT_SIZE - 2,
+          FARM_PLOT_SIZE - 2,
+          0x6c5b3b,
+        );
+
+        plot.setStrokeStyle(1, 0x2d2216);
+        this.plotSprites.push(plot);
+      }
+    }
+
+    this.refreshFarmGrid();
+  }
+
+  private handleFarmPointerDown(pointer: Phaser.Input.Pointer): void {
+    const worldPoint = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    const gridX = Math.floor((worldPoint.x - (FARM_PLOT_ORIGIN_X - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
+    const gridY = Math.floor((worldPoint.y - (FARM_PLOT_ORIGIN_Y - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
+
+    const plot = getPlot(this.farmPlots, gridX, gridY);
+    if (!plot) {
+      return;
+    }
+
+    if (plot.stage === "empty") {
+      tillPlot(this.farmPlots, gridX, gridY);
+    } else if (plot.stage === "tilled") {
+      plantCrop(this.farmPlots, gridX, gridY, "radish");
+    } else if (plot.stage === "growing") {
+      waterPlot(this.farmPlots, gridX, gridY);
+    } else if (plot.stage === "ready") {
+      harvestPlot(this.farmPlots, this.inventory, gridX, gridY);
+      this.syncInventoryHud();
+    }
+
+    this.refreshFarmGrid();
+  }
+
+  private refreshFarmGrid(): void {
+    for (const plot of this.farmPlots.plots) {
+      const sprite = this.plotSprites[plot.y * FARM_GRID_COLUMNS + plot.x];
+      if (!sprite) {
+        continue;
+      }
+
+      const fillColor =
+        plot.stage === "ready"
+          ? 0x86c06c
+          : plot.stage === "growing"
+            ? plot.watered
+              ? 0x3f8f66
+              : 0x5f9a4d
+            : plot.stage === "tilled"
+              ? 0x8b6b3f
+              : 0x6c5b3b;
+
+      sprite.setFillStyle(fillColor);
+    }
+  }
+
+  private syncInventoryHud(): void {
+    const summary = this.inventory.slots
+      .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
+      .map((slot) => `${slot.itemId} x${slot.count}`)
+      .join(", ");
+
+    this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
   }
 }
