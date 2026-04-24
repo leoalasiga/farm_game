@@ -20,12 +20,21 @@ import { createStamina, spendStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
 import { createToolState, type ToolState } from "../systems/upgrades/upgrades";
 import { getTransition } from "../systems/world/transitions";
+import { getCropPixels, getPlotPalette } from "../systems/farming/pixelCrops";
 
 const FARM_GRID_COLUMNS = 6;
 const FARM_GRID_ROWS = 4;
 const FARM_PLOT_SIZE = 24;
 const FARM_PLOT_ORIGIN_X = 96;
 const FARM_PLOT_ORIGIN_Y = 160;
+const CROP_PIXEL_SIZE = 3;
+const MAX_CROP_PIXELS = 12;
+
+interface PlotVisual {
+  cropPixels: Phaser.GameObjects.Rectangle[];
+  moisture: Phaser.GameObjects.Rectangle;
+  soil: Phaser.GameObjects.Rectangle;
+}
 
 export class FarmScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -33,7 +42,7 @@ export class FarmScene extends Phaser.Scene {
   private farmPlots = createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
   private inventory!: ReturnType<typeof createInventory>;
   private nextDayKey?: Phaser.Input.Keyboard.Key;
-  private plotSprites: Phaser.GameObjects.Rectangle[] = [];
+  private plotSprites: PlotVisual[] = [];
   private questState!: QuestState;
   private interactKey?: Phaser.Input.Keyboard.Key;
   private saveKey?: Phaser.Input.Keyboard.Key;
@@ -148,36 +157,17 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("day", this.clock.day);
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("time", formatClock(this.clock));
-    this.registry.set("inventory", "背包为空");
+    this.registry.set("inventory", "背包：空");
     this.registry.set("questText", this.questState.currentObjectiveText);
     this.registry.set("saveStatus", this.registry.get("saveStatus") ?? "还没有存档");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
+    this.registry.set("toolStatus", `斧头 Lv${this.toolState.axe.level} | 镐子 Lv${this.toolState.pickaxe.level}`);
 
     this.createFarmGrid();
     this.createVillageGate();
     this.input.on("pointerdown", this.handleFarmPointerDown, this);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.add.text(16, 16, "农场", {
-      color: "#f7f3c8",
-      fontFamily: "monospace",
-      fontSize: "18px",
-    });
-    this.add.text(16, 40, "点击地块可以翻地、播种、浇水和收获", {
-      color: "#f7f3c8",
-      fontFamily: "monospace",
-      fontSize: "14px",
-    });
-    this.add.text(16, 58, "按 N 睡觉，推进新的一天", {
-      color: "#f7f3c8",
-      fontFamily: "monospace",
-      fontSize: "14px",
-    });
-    this.add.text(16, 76, "走到门边按 E 前往村庄", {
-      color: "#f7f3c8",
-      fontFamily: "monospace",
-      fontSize: "14px",
-    });
     this.syncInventoryHud();
   }
 
@@ -255,16 +245,36 @@ export class FarmScene extends Phaser.Scene {
   private createFarmGrid(): void {
     for (let y = 0; y < FARM_GRID_ROWS; y += 1) {
       for (let x = 0; x < FARM_GRID_COLUMNS; x += 1) {
-        const plot = this.add.rectangle(
-          FARM_PLOT_ORIGIN_X + x * FARM_PLOT_SIZE,
-          FARM_PLOT_ORIGIN_Y + y * FARM_PLOT_SIZE,
+        const plotX = FARM_PLOT_ORIGIN_X + x * FARM_PLOT_SIZE;
+        const plotY = FARM_PLOT_ORIGIN_Y + y * FARM_PLOT_SIZE;
+        const soil = this.add.rectangle(
+          plotX,
+          plotY,
           FARM_PLOT_SIZE - 2,
           FARM_PLOT_SIZE - 2,
           0x6c5b3b,
         );
+        soil.setStrokeStyle(2, 0x2d2216);
 
-        plot.setStrokeStyle(1, 0x2d2216);
-        this.plotSprites.push(plot);
+        const moisture = this.add.rectangle(
+          plotX,
+          plotY + 2,
+          FARM_PLOT_SIZE - 10,
+          FARM_PLOT_SIZE - 12,
+          0x447a67,
+          0.75,
+        );
+        moisture.setVisible(false);
+
+        const cropPixels = Array.from({ length: MAX_CROP_PIXELS }, () =>
+          this.add.rectangle(plotX, plotY, CROP_PIXEL_SIZE, CROP_PIXEL_SIZE, 0x6dc067).setVisible(false),
+        );
+
+        this.plotSprites.push({
+          cropPixels,
+          moisture,
+          soil,
+        });
       }
     }
 
@@ -273,12 +283,14 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private createVillageGate(): void {
-    this.villageGate = this.add.rectangle(168, 320, 28, 44, 0xc89b5b, 0.9);
-    this.villageGate.setStrokeStyle(2, 0x5e3b1f);
-    this.add.text(140, 348, "村庄", {
+    this.villageGate = this.add.rectangle(168, 320, 32, 44, 0x000000, 0);
+    this.add.rectangle(168, 326, 10, 42, 0x6d4727).setStrokeStyle(2, 0x2c1a0f);
+    this.add.rectangle(168, 300, 42, 24, 0xc89b5b).setStrokeStyle(2, 0x5e3b1f);
+    this.add.rectangle(168, 295, 30, 4, 0xf2d58a);
+    this.add.text(152, 294, "村庄", {
       color: "#f7f3c8",
       fontFamily: "monospace",
-      fontSize: "14px",
+      fontSize: "12px",
     });
   }
 
@@ -287,7 +299,7 @@ export class FarmScene extends Phaser.Scene {
     const gridX = Math.floor((worldPoint.x - (FARM_PLOT_ORIGIN_X - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
     const gridY = Math.floor((worldPoint.y - (FARM_PLOT_ORIGIN_Y - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
 
-      const plot = getPlot(this.farmPlots, gridX, gridY);
+    const plot = getPlot(this.farmPlots, gridX, gridY);
     if (!plot) {
       return;
     }
@@ -341,24 +353,41 @@ export class FarmScene extends Phaser.Scene {
 
   private refreshFarmGrid(): void {
     for (const plot of this.farmPlots.plots) {
-      const sprite = this.plotSprites[plot.y * FARM_GRID_COLUMNS + plot.x];
-      if (!sprite) {
+      const visual = this.plotSprites[plot.y * FARM_GRID_COLUMNS + plot.x];
+      if (!visual) {
         continue;
       }
 
-      const fillColor =
-        plot.stage === "ready"
-          ? 0x86c06c
-          : plot.stage === "growing"
-            ? plot.watered
-              ? 0x3f8f66
-              : 0x5f9a4d
-            : plot.stage === "tilled"
-              ? 0x8b6b3f
-              : 0x6c5b3b;
+      const palette = getPlotPalette(plot.stage, plot.watered);
+      visual.soil.setFillStyle(this.hexToColorNumber(palette.soil));
+      visual.soil.setStrokeStyle(2, this.hexToColorNumber(palette.border));
+      visual.moisture.setFillStyle(this.hexToColorNumber(palette.moisture), 0.78);
+      visual.moisture.setVisible(plot.watered);
 
-      sprite.setFillStyle(fillColor);
+      const cropPixels =
+        plot.cropId && (plot.stage === "growing" || plot.stage === "ready")
+          ? getCropPixels(plot.cropId, plot.stage)
+          : [];
+
+      visual.cropPixels.forEach((pixelRect, index) => {
+        const cropPixel = cropPixels[index];
+        if (!cropPixel) {
+          pixelRect.setVisible(false);
+          return;
+        }
+
+        pixelRect.setVisible(true);
+        pixelRect.setFillStyle(this.hexToColorNumber(cropPixel.color));
+        pixelRect.setPosition(
+          visual.soil.x + (cropPixel.x - 3) * CROP_PIXEL_SIZE,
+          visual.soil.y + (cropPixel.y - 3) * CROP_PIXEL_SIZE,
+        );
+      });
     }
+  }
+
+  private hexToColorNumber(color: string): number {
+    return Phaser.Display.Color.HexStringToColor(color).color;
   }
 
   private syncInventoryHud(): void {
@@ -368,7 +397,7 @@ export class FarmScene extends Phaser.Scene {
       .join(", ");
 
     this.registry.set("gold", this.wallet.gold);
-    this.registry.set("inventory", summary ? `背包：${summary}` : "背包为空");
+    this.registry.set("inventory", summary ? `背包：${summary}` : "背包：空");
   }
 
   private hydrateFromStorageIfNeeded(): void {

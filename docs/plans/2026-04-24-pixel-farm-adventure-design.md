@@ -218,6 +218,28 @@ This keeps game logic, data, scenes, and content separate before the project gro
 First version asset rules:
 
 - Use one tile size, ideally `16x16`
+
+## UI Polish Addendum
+
+Approved on `2026-04-24`.
+
+### Chosen Direction
+
+Use a `pixel farm card HUD` layout:
+
+- Move all fixed status text into framed HUD panels in `UIScene`
+- Remove the duplicated instruction text rendered directly inside `FarmScene`
+- Separate `status` and `controls` into different cards so the top-left corner stays readable
+- Add line wrapping for inventory, quest, and save status text
+
+### Farm Visual Upgrade
+
+The farm plots should no longer communicate crop state with flat fill colors alone.
+
+- Keep the soil grid readable from a distance
+- Render planted crops as small pixel clusters with visible stems and petals/leaves
+- Show watering through a subtle wet-soil overlay instead of replacing the crop shape
+- Keep the palette warm and readable against the green checkerboard background
 - Use one character size, ideally `16x16` or `32x32`
 - Keep animation set minimal: idle, walk, tool use, hurt
 - Match UI style to the pixel-art world
