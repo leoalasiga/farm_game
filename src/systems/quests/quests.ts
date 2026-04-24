@@ -31,7 +31,7 @@ export function completeObjective(
   const nextObjective = starterObjectives.find(
     (objective) => !state.completedObjectives.includes(objective.id),
   );
-  state.currentObjectiveText = nextObjective?.text ?? "Forest unlocked. Explore outside the village.";
+  state.currentObjectiveText = nextObjective?.text ?? "森林已经开放，去村外探索吧。";
 
   const hasForestUnlock = FOREST_UNLOCK_OBJECTIVES.every((requiredObjective) =>
     state.completedObjectives.includes(requiredObjective),

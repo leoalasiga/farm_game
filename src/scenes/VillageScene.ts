@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { type ItemId } from "../data/items";
+import { itemData } from "../data/items";
 import { mineUnlockCost } from "../data/shop";
 import { buyItem, createWallet, sellItemFromInventory, type WalletState } from "../systems/economy/economy";
 import { createInventory, removeItem, type InventoryState } from "../systems/inventory/inventory";
@@ -75,37 +76,37 @@ export class VillageScene extends Phaser.Scene {
     body.setCollideWorldBounds(true);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
-    this.add.text(48, 48, "Village Shop", {
+    this.add.text(48, 48, "村庄商店", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "24px",
     });
-    this.add.text(48, 88, "Press B to buy 1 radish seed (3g)", {
+    this.add.text(48, 88, "按 B 购买 1 个萝卜种子（3 金）", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 112, "Press S to sell 1 radish (5g)", {
+    this.add.text(48, 112, "按 S 卖出 1 根萝卜（5 金）", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 136, "Stand by the gate and press E for farm", {
+    this.add.text(48, 136, "走到门边按 E 返回农场", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 160, "Press K to save", {
+    this.add.text(48, 160, "按 K 保存游戏", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 184, "Forest gate opens after tutorial tasks", {
+    this.add.text(48, 184, "完成新手任务后，森林大门会打开", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
     });
-    this.add.text(48, 208, "Stand by the forge and press U to unlock mine or upgrade axe", {
+    this.add.text(48, 208, "走到锻造台边按 U，可以解锁矿洞或升级斧头", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
@@ -113,28 +114,28 @@ export class VillageScene extends Phaser.Scene {
 
     this.farmGate = this.add.rectangle(248, 320, 28, 44, 0xc89b5b, 0.9);
     this.farmGate.setStrokeStyle(2, 0x5e3b1f);
-    this.add.text(222, 348, "Farm", {
+    this.add.text(222, 348, "农场", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
     this.forestGate = this.add.rectangle(440, 320, 32, 52, 0x4c8c4a, 0.95);
     this.forestGate.setStrokeStyle(2, 0x17311b);
-    this.add.text(412, 352, "Forest", {
+    this.add.text(412, 352, "森林", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
     this.mineGate = this.add.rectangle(620, 320, 32, 52, 0x6c5f76, 0.95);
     this.mineGate.setStrokeStyle(2, 0x1d1822);
-    this.add.text(596, 352, "Mine", {
+    this.add.text(596, 352, "矿洞", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
     this.forgeStation = this.add.rectangle(710, 220, 48, 36, 0xa0602d, 0.95);
     this.forgeStation.setStrokeStyle(2, 0x44220d);
-    this.add.text(682, 252, "Forge", {
+    this.add.text(682, 252, "锻造台", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -184,7 +185,7 @@ export class VillageScene extends Phaser.Scene {
     }
 
     if (this.saveKey && Phaser.Input.Keyboard.JustDown(this.saveKey)) {
-      this.saveCurrentState("Saved in village");
+      this.saveCurrentState("已在村庄保存");
     }
 
     if (
@@ -232,7 +233,7 @@ export class VillageScene extends Phaser.Scene {
           if (this.questState.unlockedZones.includes("forest")) {
             this.scene.start("ForestScene");
           } else {
-            this.registry.set("saveStatus", "Forest gate is still locked");
+            this.registry.set("saveStatus", "森林大门还没有打开");
           }
         }
       }
@@ -248,7 +249,7 @@ export class VillageScene extends Phaser.Scene {
           if (this.questState.unlockedZones.includes("mine")) {
             this.scene.start("MineScene");
           } else {
-            this.registry.set("saveStatus", "Mine is still sealed");
+            this.registry.set("saveStatus", "矿洞还没有开启");
           }
         }
       }
@@ -258,15 +259,15 @@ export class VillageScene extends Phaser.Scene {
   private syncHud(): void {
     const summary = this.inventory.slots
       .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
-      .map((slot) => `${slot.itemId} x${slot.count}`)
+      .map((slot) => `${itemData[slot.itemId].name} x${slot.count}`)
       .join(", ");
 
     this.registry.set("gold", this.wallet.gold);
-    this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+    this.registry.set("inventory", summary ? `背包：${summary}` : "背包为空");
     this.registry.set("questText", this.questState.currentObjectiveText);
     this.registry.set(
       "toolStatus",
-      `Axe Lv${this.toolState.axe.level} | Pickaxe Lv${this.toolState.pickaxe.level}`,
+      `斧头 Lv${this.toolState.axe.level} | 镐子 Lv${this.toolState.pickaxe.level}`,
     );
   }
 
@@ -308,9 +309,9 @@ export class VillageScene extends Phaser.Scene {
     if (!this.questState.unlockedZones.includes("mine")) {
       if (this.tryPayMaterialCost(mineUnlockCost)) {
         this.questState.unlockedZones.push("mine");
-        this.registry.set("saveStatus", "Mine unlocked");
+        this.registry.set("saveStatus", "矿洞已经解锁");
       } else {
-        this.registry.set("saveStatus", "Need 12 wood and 8 stone to unlock mine");
+        this.registry.set("saveStatus", "需要 12 个木头和 8 个石头才能解锁矿洞");
       }
       this.registry.set("questState", this.questState);
       this.syncHud();
@@ -320,16 +321,16 @@ export class VillageScene extends Phaser.Scene {
     if (this.toolState.axe.level === 1) {
       const axeUpgradeCost = toolUpgradeCosts.axe;
       if (this.tryPayMaterialCost(axeUpgradeCost) && upgradeTool(this.toolState, "axe", axeUpgradeCost)) {
-        this.registry.set("saveStatus", "Axe upgraded to level 2");
+        this.registry.set("saveStatus", "斧头已经升级到 2 级");
       } else {
-        this.registry.set("saveStatus", "Need 10 wood and 5 copper ore to upgrade axe");
+        this.registry.set("saveStatus", "需要 10 个木头和 5 个铜矿石才能升级斧头");
       }
       this.registry.set("toolState", this.toolState);
       this.syncHud();
       return;
     }
 
-    this.registry.set("saveStatus", "Forge has nothing new yet");
+    this.registry.set("saveStatus", "锻造台暂时没有新的内容");
   }
 
   private tryPayMaterialCost(cost: Partial<Record<keyof typeof mineUnlockCost | "copper_ore", number>>): boolean {

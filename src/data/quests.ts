@@ -14,14 +14,14 @@ export interface StarterObjectiveDefinition {
 export const starterObjectives: StarterObjectiveDefinition[] = [
   {
     id: "harvest_first_crop",
-    text: "Harvest your first crop on the farm",
+    text: "在农场收获你的第一批作物",
   },
   {
     id: "meet_shopkeeper",
-    text: "Visit the village shopkeeper",
+    text: "去村里见一见店主",
   },
   {
     id: "sell_first_crop",
-    text: "Sell your first radish in the village",
+    text: "在村里卖出第一根萝卜",
   },
 ];

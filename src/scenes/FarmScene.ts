@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import farmMap from "../maps/farm.json";
+import { itemData } from "../data/items";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
 import {
   advanceFarmDay,
@@ -147,9 +148,9 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("day", this.clock.day);
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("time", formatClock(this.clock));
-    this.registry.set("inventory", "Inventory empty");
+    this.registry.set("inventory", "背包为空");
     this.registry.set("questText", this.questState.currentObjectiveText);
-    this.registry.set("saveStatus", this.registry.get("saveStatus") ?? "No save yet");
+    this.registry.set("saveStatus", this.registry.get("saveStatus") ?? "还没有存档");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
 
     this.createFarmGrid();
@@ -157,22 +158,22 @@ export class FarmScene extends Phaser.Scene {
     this.input.on("pointerdown", this.handleFarmPointerDown, this);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.add.text(16, 16, "Farm Prototype", {
+    this.add.text(16, 16, "农场", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "18px",
     });
-    this.add.text(16, 40, "Click plots to till, plant, and water", {
+    this.add.text(16, 40, "点击地块可以翻地、播种、浇水和收获", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
-    this.add.text(16, 58, "Press N to sleep and grow crops", {
+    this.add.text(16, 58, "按 N 睡觉，推进新的一天", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
     });
-    this.add.text(16, 76, "Stand by the gate and press E for village", {
+    this.add.text(16, 76, "走到门边按 E 前往村庄", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -200,11 +201,11 @@ export class FarmScene extends Phaser.Scene {
       this.refreshFarmGrid();
       this.registry.set("day", this.clock.day);
       this.registry.set("time", formatClock(this.clock));
-      this.saveCurrentState("Saved after sleep");
+      this.saveCurrentState("睡觉后已自动保存");
     }
 
     if (this.saveKey && Phaser.Input.Keyboard.JustDown(this.saveKey)) {
-      this.saveCurrentState("Saved on farm");
+      this.saveCurrentState("已在农场保存");
     }
 
     if (
@@ -274,7 +275,7 @@ export class FarmScene extends Phaser.Scene {
   private createVillageGate(): void {
     this.villageGate = this.add.rectangle(168, 320, 28, 44, 0xc89b5b, 0.9);
     this.villageGate.setStrokeStyle(2, 0x5e3b1f);
-    this.add.text(140, 348, "Village", {
+    this.add.text(140, 348, "村庄", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -286,41 +287,41 @@ export class FarmScene extends Phaser.Scene {
     const gridX = Math.floor((worldPoint.x - (FARM_PLOT_ORIGIN_X - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
     const gridY = Math.floor((worldPoint.y - (FARM_PLOT_ORIGIN_Y - FARM_PLOT_SIZE / 2)) / FARM_PLOT_SIZE);
 
-    const plot = getPlot(this.farmPlots, gridX, gridY);
+      const plot = getPlot(this.farmPlots, gridX, gridY);
     if (!plot) {
       return;
     }
 
     if (plot.stage === "empty") {
       if (!spendStamina(this.stamina, 2)) {
-        this.registry.set("saveStatus", "Too tired to till soil");
+        this.registry.set("saveStatus", "体力不足，无法翻地");
         return;
       }
       tillPlot(this.farmPlots, gridX, gridY);
-      this.registry.set("saveStatus", "Soil tilled");
+      this.registry.set("saveStatus", "已经翻好土地");
     } else if (plot.stage === "tilled") {
       if (!spendStamina(this.stamina, 1)) {
-        this.registry.set("saveStatus", "Too tired to plant");
+        this.registry.set("saveStatus", "体力不足，无法播种");
         return;
       }
       const removedSeed = removeItem(this.inventory, "radish_seed", 1);
       if (!removedSeed.ok) {
-        this.registry.set("saveStatus", "Need a radish seed to plant");
+        this.registry.set("saveStatus", "需要一颗萝卜种子才能播种");
         return;
       }
       plantCrop(this.farmPlots, gridX, gridY, "radish");
-      this.registry.set("saveStatus", "Radish planted");
+      this.registry.set("saveStatus", "已经种下萝卜");
       this.syncInventoryHud();
     } else if (plot.stage === "growing") {
       if (!spendStamina(this.stamina, 1)) {
-        this.registry.set("saveStatus", "Too tired to water");
+        this.registry.set("saveStatus", "体力不足，无法浇水");
         return;
       }
       waterPlot(this.farmPlots, gridX, gridY);
-      this.registry.set("saveStatus", "Crop watered");
+      this.registry.set("saveStatus", "已经给作物浇水");
     } else if (plot.stage === "ready") {
       if (!spendStamina(this.stamina, 1)) {
-        this.registry.set("saveStatus", "Too tired to harvest");
+        this.registry.set("saveStatus", "体力不足，无法收获");
         return;
       }
       const result = harvestPlot(this.farmPlots, this.inventory, gridX, gridY);
@@ -328,7 +329,7 @@ export class FarmScene extends Phaser.Scene {
         completeObjective(this.questState, "harvest_first_crop");
         this.registry.set("questState", this.questState);
         this.registry.set("questText", this.questState.currentObjectiveText);
-        this.registry.set("saveStatus", "Crop harvested");
+        this.registry.set("saveStatus", "已经收获作物");
       }
       this.syncInventoryHud();
     }
@@ -363,11 +364,11 @@ export class FarmScene extends Phaser.Scene {
   private syncInventoryHud(): void {
     const summary = this.inventory.slots
       .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
-      .map((slot) => `${slot.itemId} x${slot.count}`)
+      .map((slot) => `${itemData[slot.itemId].name} x${slot.count}`)
       .join(", ");
 
     this.registry.set("gold", this.wallet.gold);
-    this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+    this.registry.set("inventory", summary ? `背包：${summary}` : "背包为空");
   }
 
   private hydrateFromStorageIfNeeded(): void {
@@ -378,7 +379,7 @@ export class FarmScene extends Phaser.Scene {
     const storedSave = loadFromStorage();
     if (storedSave) {
       this.registry.set("saveData", storedSave);
-      this.registry.set("saveStatus", `Loaded day ${storedSave.day} save`);
+      this.registry.set("saveStatus", `已读取第 ${storedSave.day} 天的存档`);
     }
 
     this.registry.set("saveHydrated", true);

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { itemData } from "../data/items";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
 import { resourceNodeData } from "../data/resources";
 import { gatherNode } from "../systems/gathering/gathering";
@@ -52,12 +53,12 @@ export class MineScene extends Phaser.Scene {
       Phaser.Input.Keyboard.Key
     >;
 
-    this.add.text(48, 48, "Mine", {
+    this.add.text(48, 48, "矿洞", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "24px",
     });
-    this.add.text(48, 80, "Press E near ore to gather, or near gate to return", {
+    this.add.text(48, 80, "靠近矿点按 E 采集，靠近大门按 E 返回村庄", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
@@ -67,7 +68,7 @@ export class MineScene extends Phaser.Scene {
     this.createNode("copper_vein", 540, 240, 40, 44);
     this.villageGate = this.add.rectangle(180, 340, 28, 52, 0xc89b5b, 0.95);
     this.villageGate.setStrokeStyle(2, 0x5e3b1f);
-    this.add.text(152, 372, "Village", {
+    this.add.text(152, 372, "村庄", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -131,14 +132,14 @@ export class MineScene extends Phaser.Scene {
   private syncHud(): void {
     const summary = this.inventory.slots
       .filter((slot): slot is NonNullable<(typeof this.inventory.slots)[number]> => slot !== null)
-      .map((slot) => `${slot.itemId} x${slot.count}`)
+      .map((slot) => `${itemData[slot.itemId].name} x${slot.count}`)
       .join(", ");
 
-    this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+    this.registry.set("inventory", summary ? `背包：${summary}` : "背包为空");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
     this.registry.set(
       "toolStatus",
-      `Axe Lv${this.toolState.axe.level} | Pickaxe Lv${this.toolState.pickaxe.level}`,
+      `斧头 Lv${this.toolState.axe.level} | 镐子 Lv${this.toolState.pickaxe.level}`,
     );
   }
 
@@ -158,7 +159,7 @@ export class MineScene extends Phaser.Scene {
 
     const result = gatherNode(nearestNode.id, getToolEfficiency(this.toolState, "pickaxe"));
     if (!spendStamina(this.stamina, result.staminaCost)) {
-      this.registry.set("saveStatus", "Too tired to mine");
+      this.registry.set("saveStatus", "体力不足，无法挖矿");
       return;
     }
 
@@ -168,7 +169,7 @@ export class MineScene extends Phaser.Scene {
 
     this.registry.set(
       "saveStatus",
-      `Mined ${result.drops.map((drop) => `${drop.itemId} x${drop.count}`).join(", ")}`,
+      `获得了 ${result.drops.map((drop) => `${itemData[drop.itemId].name} x${drop.count}`).join("，")}`,
     );
     this.syncHud();
   }
