@@ -11,11 +11,11 @@ import {
   waterPlot,
   type FarmPlotsState,
 } from "../systems/farming/farmPlots";
-import { createInventory, type InventoryState } from "../systems/inventory/inventory";
+import { addItem, createInventory, removeItem, type InventoryState } from "../systems/inventory/inventory";
 import { createWallet, type WalletState } from "../systems/economy/economy";
 import { completeObjective, createQuestState, type QuestState } from "../systems/quests/quests";
 import { loadFromStorage, saveToStorage, type GameSaveData } from "../systems/save/save";
-import { createStamina } from "../systems/stamina/stamina";
+import { createStamina, spendStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
 import { createToolState, type ToolState } from "../systems/upgrades/upgrades";
 import { getTransition } from "../systems/world/transitions";
@@ -100,6 +100,9 @@ export class FarmScene extends Phaser.Scene {
           width: saveData.farmPlots.width,
         };
       }
+    }
+    if (!saveData && this.inventory.slots.every((slot) => slot === null)) {
+      addItem(this.inventory, "radish_seed", 3);
     }
 
     this.registry.set("inventoryState", this.inventory);
@@ -289,22 +292,50 @@ export class FarmScene extends Phaser.Scene {
     }
 
     if (plot.stage === "empty") {
+      if (!spendStamina(this.stamina, 2)) {
+        this.registry.set("saveStatus", "Too tired to till soil");
+        return;
+      }
       tillPlot(this.farmPlots, gridX, gridY);
+      this.registry.set("saveStatus", "Soil tilled");
     } else if (plot.stage === "tilled") {
+      if (!spendStamina(this.stamina, 1)) {
+        this.registry.set("saveStatus", "Too tired to plant");
+        return;
+      }
+      const removedSeed = removeItem(this.inventory, "radish_seed", 1);
+      if (!removedSeed.ok) {
+        this.registry.set("saveStatus", "Need a radish seed to plant");
+        return;
+      }
       plantCrop(this.farmPlots, gridX, gridY, "radish");
+      this.registry.set("saveStatus", "Radish planted");
+      this.syncInventoryHud();
     } else if (plot.stage === "growing") {
+      if (!spendStamina(this.stamina, 1)) {
+        this.registry.set("saveStatus", "Too tired to water");
+        return;
+      }
       waterPlot(this.farmPlots, gridX, gridY);
+      this.registry.set("saveStatus", "Crop watered");
     } else if (plot.stage === "ready") {
+      if (!spendStamina(this.stamina, 1)) {
+        this.registry.set("saveStatus", "Too tired to harvest");
+        return;
+      }
       const result = harvestPlot(this.farmPlots, this.inventory, gridX, gridY);
       if (result.ok) {
         completeObjective(this.questState, "harvest_first_crop");
         this.registry.set("questState", this.questState);
         this.registry.set("questText", this.questState.currentObjectiveText);
+        this.registry.set("saveStatus", "Crop harvested");
       }
       this.syncInventoryHud();
     }
 
     this.refreshFarmGrid();
+    this.registry.set("farmPlotsState", this.farmPlots);
+    this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
   }
 
   private refreshFarmGrid(): void {
