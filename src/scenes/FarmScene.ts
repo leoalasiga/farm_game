@@ -59,6 +59,7 @@ export class FarmScene extends Phaser.Scene {
       (this.registry.get("inventoryState") as InventoryState | undefined) ??
       createInventory(Math.max(8, saveData?.inventory.length ?? 8));
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet(12);
+    this.stamina = (this.registry.get("staminaState") as typeof this.stamina | undefined) ?? createStamina(100);
     this.farmPlots =
       (this.registry.get("farmPlotsState") as FarmPlotsState | undefined) ??
       createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
@@ -85,6 +86,7 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("inventoryState", this.inventory);
     this.registry.set("walletState", this.wallet);
     this.registry.set("farmPlotsState", this.farmPlots);
+    this.registry.set("staminaState", this.stamina);
 
     this.cameras.main.setBackgroundColor("#355e3b");
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
