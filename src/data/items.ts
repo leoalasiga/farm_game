@@ -1,7 +1,10 @@
 export const itemIds = [
   "radish",
+  "radish_seed",
   "potato",
+  "potato_seed",
   "blueberry",
+  "blueberry_seed",
   "wood",
   "stone",
   "copper_ore",
@@ -21,11 +24,14 @@ export interface ItemDefinition {
 export const itemData: Record<ItemId, ItemDefinition> = {
   berries: { id: "berries", name: "Berries", maxStack: 99 },
   blueberry: { id: "blueberry", name: "Blueberry", maxStack: 99 },
+  blueberry_seed: { id: "blueberry_seed", name: "Blueberry Seeds", maxStack: 99 },
   coal: { id: "coal", name: "Coal", maxStack: 99 },
   copper_ore: { id: "copper_ore", name: "Copper Ore", maxStack: 99 },
   fiber: { id: "fiber", name: "Fiber", maxStack: 99 },
   potato: { id: "potato", name: "Potato", maxStack: 99 },
+  potato_seed: { id: "potato_seed", name: "Potato Seeds", maxStack: 99 },
   radish: { id: "radish", name: "Radish", maxStack: 99 },
+  radish_seed: { id: "radish_seed", name: "Radish Seeds", maxStack: 99 },
   stone: { id: "stone", name: "Stone", maxStack: 99 },
   wood: { id: "wood", name: "Wood", maxStack: 99 },
 };

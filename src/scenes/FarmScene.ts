@@ -11,6 +11,7 @@ import {
   waterPlot,
 } from "../systems/farming/farmPlots";
 import { createInventory } from "../systems/inventory/inventory";
+import { createWallet, type WalletState } from "../systems/economy/economy";
 import { createStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
 
@@ -24,10 +25,11 @@ export class FarmScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private clock = createClock();
   private farmPlots = createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
-  private inventory = createInventory(8);
+  private inventory!: ReturnType<typeof createInventory>;
   private nextDayKey?: Phaser.Input.Keyboard.Key;
   private plotSprites: Phaser.GameObjects.Rectangle[] = [];
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
+  private wallet!: WalletState;
   private player?: Phaser.GameObjects.Rectangle;
   private stamina = createStamina(100);
 
@@ -39,6 +41,12 @@ export class FarmScene extends Phaser.Scene {
     const mapWidth = farmMap.width * farmMap.tilewidth;
     const mapHeight = farmMap.height * farmMap.tileheight;
     const playerModel = createPlayerModel({ x: 64, y: 64 });
+    this.inventory =
+      (this.registry.get("inventoryState") as ReturnType<typeof createInventory> | undefined) ??
+      createInventory(8);
+    this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet();
+    this.registry.set("inventoryState", this.inventory);
+    this.registry.set("walletState", this.wallet);
 
     this.cameras.main.setBackgroundColor("#355e3b");
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
@@ -71,6 +79,7 @@ export class FarmScene extends Phaser.Scene {
     this.nextDayKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.N);
 
     this.registry.set("day", this.clock.day);
+    this.registry.set("gold", this.wallet.gold);
     this.registry.set("time", formatClock(this.clock));
     this.registry.set("inventory", "Inventory empty");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
@@ -209,6 +218,7 @@ export class FarmScene extends Phaser.Scene {
       .map((slot) => `${slot.itemId} x${slot.count}`)
       .join(", ");
 
+    this.registry.set("gold", this.wallet.gold);
     this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
   }
 }
