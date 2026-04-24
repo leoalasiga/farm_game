@@ -21,12 +21,13 @@ import { advanceClock, createClock, formatClock, startNextDay } from "../systems
 import { createToolState, type ToolState } from "../systems/upgrades/upgrades";
 import { getTransition } from "../systems/world/transitions";
 import { getCropPixels, getPlotPalette } from "../systems/farming/pixelCrops";
+import { FARM_LAYOUT } from "./farmLayout";
 
-const FARM_GRID_COLUMNS = 6;
-const FARM_GRID_ROWS = 4;
-const FARM_PLOT_SIZE = 24;
-const FARM_PLOT_ORIGIN_X = 96;
-const FARM_PLOT_ORIGIN_Y = 160;
+const FARM_GRID_COLUMNS = FARM_LAYOUT.plot.columns;
+const FARM_GRID_ROWS = FARM_LAYOUT.plot.rows;
+const FARM_PLOT_SIZE = FARM_LAYOUT.plot.size;
+const FARM_PLOT_ORIGIN_X = FARM_LAYOUT.plot.originX;
+const FARM_PLOT_ORIGIN_Y = FARM_LAYOUT.plot.originY;
 const CROP_PIXEL_SIZE = 3;
 const MAX_CROP_PIXELS = 12;
 

@@ -25,12 +25,12 @@ export const PIXEL_HUD_LAYOUT = {
     height: 124,
     width: 254,
     x: 688,
-    y: 18,
+    y: 280,
   } satisfies PanelBounds,
   statusPanel: {
     height: 244,
-    width: 286,
-    x: 18,
+    width: 254,
+    x: 688,
     y: 18,
   } satisfies PanelBounds,
   textInset: 14,
@@ -76,7 +76,7 @@ export function createHudTextStyle(kind: "body" | "label" | "title"): HudTextSty
     lineSpacing: 6,
     wordWrap: {
       useAdvancedWrap: true,
-      width: 224,
+      width: 192,
     },
   };
 }
