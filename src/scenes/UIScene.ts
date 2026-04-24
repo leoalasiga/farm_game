@@ -4,6 +4,7 @@ export class UIScene extends Phaser.Scene {
   private dayText?: Phaser.GameObjects.Text;
   private goldText?: Phaser.GameObjects.Text;
   private inventoryText?: Phaser.GameObjects.Text;
+  private saveStatusText?: Phaser.GameObjects.Text;
   private staminaText?: Phaser.GameObjects.Text;
   private timeText?: Phaser.GameObjects.Text;
 
@@ -29,6 +30,11 @@ export class UIScene extends Phaser.Scene {
       fontSize: "14px",
     });
     this.inventoryText.setScrollFactor(0);
+    this.saveStatusText = this.add.text(16, 136, "No save yet", {
+      ...textStyle,
+      fontSize: "14px",
+    });
+    this.saveStatusText.setScrollFactor(0);
 
     this.refreshHud();
     this.registry.events.on("changedata", this.refreshHud, this);
@@ -44,5 +50,6 @@ export class UIScene extends Phaser.Scene {
     this.staminaText?.setText(`Stamina ${this.registry.get("stamina") ?? "100/100"}`);
     this.goldText?.setText(`Gold ${this.registry.get("gold") ?? 0}g`);
     this.inventoryText?.setText(this.registry.get("inventory") ?? "Inventory empty");
+    this.saveStatusText?.setText(this.registry.get("saveStatus") ?? "No save yet");
   }
 }

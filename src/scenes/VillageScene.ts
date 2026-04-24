@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { buyItem, createWallet, sellItemFromInventory, type WalletState } from "../systems/economy/economy";
 import { createInventory, type InventoryState } from "../systems/inventory/inventory";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
+import { saveToStorage, type GameSaveData } from "../systems/save/save";
 import { getTransition } from "../systems/world/transitions";
 
 export class VillageScene extends Phaser.Scene {
@@ -9,6 +10,7 @@ export class VillageScene extends Phaser.Scene {
   private inventory!: InventoryState;
   private interactKey?: Phaser.Input.Keyboard.Key;
   private player?: Phaser.GameObjects.Rectangle;
+  private saveKey?: Phaser.Input.Keyboard.Key;
   private sellKey?: Phaser.Input.Keyboard.Key;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wallet!: WalletState;
@@ -20,8 +22,8 @@ export class VillageScene extends Phaser.Scene {
   }
 
   create(): void {
-    const entryTransitionId =
-      (this.scene.settings.data?.transitionId as string | undefined) ?? "farm_gate";
+    const sceneData = this.scene.settings.data as { transitionId?: string } | undefined;
+    const entryTransitionId = sceneData?.transitionId ?? "farm_gate";
     const spawn = getTransition(entryTransitionId).spawn;
     const playerModel = createPlayerModel({ x: spawn.x, y: spawn.y });
 
@@ -36,6 +38,7 @@ export class VillageScene extends Phaser.Scene {
 
     this.buyKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.B);
     this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.saveKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.sellKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S);
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.wasd = this.input.keyboard?.addKeys("W,A,S,D") as Record<
@@ -65,6 +68,11 @@ export class VillageScene extends Phaser.Scene {
       fontSize: "16px",
     });
     this.add.text(48, 136, "Stand by the gate and press E for farm", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "16px",
+    });
+    this.add.text(48, 160, "Press K to save", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "16px",
@@ -116,6 +124,10 @@ export class VillageScene extends Phaser.Scene {
       this.syncHud();
     }
 
+    if (this.saveKey && Phaser.Input.Keyboard.JustDown(this.saveKey)) {
+      this.saveCurrentState("Saved in village");
+    }
+
     if (
       this.interactKey &&
       Phaser.Input.Keyboard.JustDown(this.interactKey) &&
@@ -145,5 +157,30 @@ export class VillageScene extends Phaser.Scene {
 
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+  }
+
+  private saveCurrentState(status: string): void {
+    const farmPlots = this.registry.get("farmPlotsState") as GameSaveData["farmPlots"] | undefined;
+    const farmPlayerPosition = this.registry.get("farmPlayerPosition") as
+      | GameSaveData["playerPosition"]
+      | undefined;
+    const saveData: GameSaveData = {
+      day: this.registry.get("day") ?? 1,
+      farmPlots: farmPlots
+        ? {
+            height: farmPlots.height,
+            plots: farmPlots.plots.map((plot) => ({ ...plot })),
+            width: farmPlots.width,
+          }
+        : undefined,
+      gold: this.wallet.gold,
+      inventory: this.inventory.slots.map((slot) => (slot ? { ...slot } : null)),
+      playerPosition: farmPlayerPosition,
+      timeMinutes: 0,
+    };
+
+    saveToStorage(saveData);
+    this.registry.set("saveData", saveData);
+    this.registry.set("saveStatus", status);
   }
 }

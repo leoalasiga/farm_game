@@ -9,9 +9,11 @@ import {
   plantCrop,
   tillPlot,
   waterPlot,
+  type FarmPlotsState,
 } from "../systems/farming/farmPlots";
-import { createInventory } from "../systems/inventory/inventory";
+import { createInventory, type InventoryState } from "../systems/inventory/inventory";
 import { createWallet, type WalletState } from "../systems/economy/economy";
+import { loadFromStorage, saveToStorage, type GameSaveData } from "../systems/save/save";
 import { createStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
 import { getTransition } from "../systems/world/transitions";
@@ -30,6 +32,7 @@ export class FarmScene extends Phaser.Scene {
   private nextDayKey?: Phaser.Input.Keyboard.Key;
   private plotSprites: Phaser.GameObjects.Rectangle[] = [];
   private interactKey?: Phaser.Input.Keyboard.Key;
+  private saveKey?: Phaser.Input.Keyboard.Key;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private wallet!: WalletState;
   private player?: Phaser.GameObjects.Rectangle;
@@ -43,16 +46,45 @@ export class FarmScene extends Phaser.Scene {
   create(): void {
     const mapWidth = farmMap.width * farmMap.tilewidth;
     const mapHeight = farmMap.height * farmMap.tileheight;
-    const entryTransitionId =
-      (this.scene.settings.data?.transitionId as string | undefined) ?? "village_gate";
-    const spawn = getTransition(entryTransitionId).spawn;
+    this.hydrateFromStorageIfNeeded();
+    const saveData = this.registry.get("saveData") as GameSaveData | undefined;
+    const sceneData = this.scene.settings.data as { transitionId?: string } | undefined;
+    const entryTransitionId = sceneData?.transitionId ?? "village_gate";
+    const spawn =
+      sceneData?.transitionId === undefined && saveData?.playerPosition
+        ? saveData.playerPosition
+        : getTransition(entryTransitionId).spawn;
     const playerModel = createPlayerModel({ x: spawn.x, y: spawn.y });
     this.inventory =
-      (this.registry.get("inventoryState") as ReturnType<typeof createInventory> | undefined) ??
-      createInventory(8);
-    this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet();
+      (this.registry.get("inventoryState") as InventoryState | undefined) ??
+      createInventory(Math.max(8, saveData?.inventory.length ?? 8));
+    this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet(12);
+    this.farmPlots =
+      (this.registry.get("farmPlotsState") as FarmPlotsState | undefined) ??
+      createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
+
+    if (saveData) {
+      this.clock.day = saveData.day;
+      this.clock.currentMinutes = saveData.timeMinutes ?? 0;
+      this.clock.isNight = false;
+      this.inventory.slots = Array.from({ length: this.inventory.capacity }, (_, index) => {
+        const slot = saveData.inventory[index];
+        return slot ? { ...slot } : null;
+      });
+      this.wallet.gold = saveData.gold;
+
+      if (saveData.farmPlots) {
+        this.farmPlots = {
+          height: saveData.farmPlots.height,
+          plots: saveData.farmPlots.plots.map((plot) => ({ ...plot })),
+          width: saveData.farmPlots.width,
+        };
+      }
+    }
+
     this.registry.set("inventoryState", this.inventory);
     this.registry.set("walletState", this.wallet);
+    this.registry.set("farmPlotsState", this.farmPlots);
 
     this.cameras.main.setBackgroundColor("#355e3b");
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
@@ -84,11 +116,13 @@ export class FarmScene extends Phaser.Scene {
     >;
     this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.nextDayKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+    this.saveKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.K);
 
     this.registry.set("day", this.clock.day);
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("time", formatClock(this.clock));
     this.registry.set("inventory", "Inventory empty");
+    this.registry.set("saveStatus", this.registry.get("saveStatus") ?? "No save yet");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
 
     this.createFarmGrid();
@@ -128,6 +162,10 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("day", this.clock.day);
     this.registry.set("time", formatClock(this.clock));
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
+    this.registry.set("farmPlayerPosition", {
+      x: this.player.x,
+      y: this.player.y,
+    });
 
     if (this.nextDayKey && Phaser.Input.Keyboard.JustDown(this.nextDayKey)) {
       advanceFarmDay(this.farmPlots);
@@ -135,6 +173,11 @@ export class FarmScene extends Phaser.Scene {
       this.refreshFarmGrid();
       this.registry.set("day", this.clock.day);
       this.registry.set("time", formatClock(this.clock));
+      this.saveCurrentState("Saved after sleep");
+    }
+
+    if (this.saveKey && Phaser.Input.Keyboard.JustDown(this.saveKey)) {
+      this.saveCurrentState("Saved on farm");
     }
 
     if (
@@ -198,6 +241,7 @@ export class FarmScene extends Phaser.Scene {
     }
 
     this.refreshFarmGrid();
+    this.registry.set("farmPlotsState", this.farmPlots);
   }
 
   private createVillageGate(): void {
@@ -264,5 +308,43 @@ export class FarmScene extends Phaser.Scene {
 
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+  }
+
+  private hydrateFromStorageIfNeeded(): void {
+    if (this.registry.get("saveHydrated")) {
+      return;
+    }
+
+    const storedSave = loadFromStorage();
+    if (storedSave) {
+      this.registry.set("saveData", storedSave);
+      this.registry.set("saveStatus", `Loaded day ${storedSave.day} save`);
+    }
+
+    this.registry.set("saveHydrated", true);
+  }
+
+  private saveCurrentState(status: string): void {
+    const saveData: GameSaveData = {
+      day: this.clock.day,
+      farmPlots: {
+        height: this.farmPlots.height,
+        plots: this.farmPlots.plots.map((plot) => ({ ...plot })),
+        width: this.farmPlots.width,
+      },
+      gold: this.wallet.gold,
+      inventory: this.inventory.slots.map((slot) => (slot ? { ...slot } : null)),
+      playerPosition: this.player
+        ? {
+            x: this.player.x,
+            y: this.player.y,
+          }
+        : undefined,
+      timeMinutes: this.clock.currentMinutes,
+    };
+
+    saveToStorage(saveData);
+    this.registry.set("saveData", saveData);
+    this.registry.set("saveStatus", status);
   }
 }
