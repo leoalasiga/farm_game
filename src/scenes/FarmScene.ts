@@ -14,6 +14,7 @@ import { createInventory } from "../systems/inventory/inventory";
 import { createWallet, type WalletState } from "../systems/economy/economy";
 import { createStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
+import { getTransition } from "../systems/world/transitions";
 
 const FARM_GRID_COLUMNS = 6;
 const FARM_GRID_ROWS = 4;
@@ -28,10 +29,12 @@ export class FarmScene extends Phaser.Scene {
   private inventory!: ReturnType<typeof createInventory>;
   private nextDayKey?: Phaser.Input.Keyboard.Key;
   private plotSprites: Phaser.GameObjects.Rectangle[] = [];
+  private interactKey?: Phaser.Input.Keyboard.Key;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private wallet!: WalletState;
   private player?: Phaser.GameObjects.Rectangle;
   private stamina = createStamina(100);
+  private villageGate?: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super("FarmScene");
@@ -40,7 +43,10 @@ export class FarmScene extends Phaser.Scene {
   create(): void {
     const mapWidth = farmMap.width * farmMap.tilewidth;
     const mapHeight = farmMap.height * farmMap.tileheight;
-    const playerModel = createPlayerModel({ x: 64, y: 64 });
+    const entryTransitionId =
+      (this.scene.settings.data?.transitionId as string | undefined) ?? "village_gate";
+    const spawn = getTransition(entryTransitionId).spawn;
+    const playerModel = createPlayerModel({ x: spawn.x, y: spawn.y });
     this.inventory =
       (this.registry.get("inventoryState") as ReturnType<typeof createInventory> | undefined) ??
       createInventory(8);
@@ -76,6 +82,7 @@ export class FarmScene extends Phaser.Scene {
       "W" | "A" | "S" | "D",
       Phaser.Input.Keyboard.Key
     >;
+    this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.nextDayKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.N);
 
     this.registry.set("day", this.clock.day);
@@ -85,6 +92,7 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
 
     this.createFarmGrid();
+    this.createVillageGate();
     this.input.on("pointerdown", this.handleFarmPointerDown, this);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
@@ -99,6 +107,11 @@ export class FarmScene extends Phaser.Scene {
       fontSize: "14px",
     });
     this.add.text(16, 58, "Press N to sleep and grow crops", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.add.text(16, 76, "Stand by the gate and press E for village", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -122,6 +135,27 @@ export class FarmScene extends Phaser.Scene {
       this.refreshFarmGrid();
       this.registry.set("day", this.clock.day);
       this.registry.set("time", formatClock(this.clock));
+    }
+
+    if (
+      this.interactKey &&
+      Phaser.Input.Keyboard.JustDown(this.interactKey) &&
+      this.player &&
+      this.villageGate
+    ) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.villageGate.x,
+        this.villageGate.y,
+      );
+      if (distance < 40) {
+        const transition = getTransition("farm_gate");
+        this.scene.start(transition.targetScene, {
+          transitionId: transition.targetTransitionId,
+        });
+        return;
+      }
     }
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -164,6 +198,16 @@ export class FarmScene extends Phaser.Scene {
     }
 
     this.refreshFarmGrid();
+  }
+
+  private createVillageGate(): void {
+    this.villageGate = this.add.rectangle(168, 320, 28, 44, 0xc89b5b, 0.9);
+    this.villageGate.setStrokeStyle(2, 0x5e3b1f);
+    this.add.text(140, 348, "Village", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
   }
 
   private handleFarmPointerDown(pointer: Phaser.Input.Pointer): void {
