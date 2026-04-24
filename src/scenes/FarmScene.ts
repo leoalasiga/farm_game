@@ -13,6 +13,7 @@ import {
 } from "../systems/farming/farmPlots";
 import { createInventory, type InventoryState } from "../systems/inventory/inventory";
 import { createWallet, type WalletState } from "../systems/economy/economy";
+import { completeObjective, createQuestState, type QuestState } from "../systems/quests/quests";
 import { loadFromStorage, saveToStorage, type GameSaveData } from "../systems/save/save";
 import { createStamina } from "../systems/stamina/stamina";
 import { advanceClock, createClock, formatClock, startNextDay } from "../systems/time/time";
@@ -31,6 +32,7 @@ export class FarmScene extends Phaser.Scene {
   private inventory!: ReturnType<typeof createInventory>;
   private nextDayKey?: Phaser.Input.Keyboard.Key;
   private plotSprites: Phaser.GameObjects.Rectangle[] = [];
+  private questState!: QuestState;
   private interactKey?: Phaser.Input.Keyboard.Key;
   private saveKey?: Phaser.Input.Keyboard.Key;
   private wasd?: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
@@ -60,6 +62,7 @@ export class FarmScene extends Phaser.Scene {
       createInventory(Math.max(8, saveData?.inventory.length ?? 8));
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet(12);
     this.stamina = (this.registry.get("staminaState") as typeof this.stamina | undefined) ?? createStamina(100);
+    this.questState = (this.registry.get("questState") as QuestState | undefined) ?? createQuestState();
     this.farmPlots =
       (this.registry.get("farmPlotsState") as FarmPlotsState | undefined) ??
       createFarmPlots(FARM_GRID_COLUMNS, FARM_GRID_ROWS);
@@ -87,6 +90,7 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("walletState", this.wallet);
     this.registry.set("farmPlotsState", this.farmPlots);
     this.registry.set("staminaState", this.stamina);
+    this.registry.set("questState", this.questState);
 
     this.cameras.main.setBackgroundColor("#355e3b");
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
@@ -124,6 +128,7 @@ export class FarmScene extends Phaser.Scene {
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("time", formatClock(this.clock));
     this.registry.set("inventory", "Inventory empty");
+    this.registry.set("questText", this.questState.currentObjectiveText);
     this.registry.set("saveStatus", this.registry.get("saveStatus") ?? "No save yet");
     this.registry.set("stamina", `${this.stamina.current}/${this.stamina.max}`);
 
@@ -273,7 +278,12 @@ export class FarmScene extends Phaser.Scene {
     } else if (plot.stage === "growing") {
       waterPlot(this.farmPlots, gridX, gridY);
     } else if (plot.stage === "ready") {
-      harvestPlot(this.farmPlots, this.inventory, gridX, gridY);
+      const result = harvestPlot(this.farmPlots, this.inventory, gridX, gridY);
+      if (result.ok) {
+        completeObjective(this.questState, "harvest_first_crop");
+        this.registry.set("questState", this.questState);
+        this.registry.set("questText", this.questState.currentObjectiveText);
+      }
       this.syncInventoryHud();
     }
 

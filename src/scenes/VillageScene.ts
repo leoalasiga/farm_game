@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { buyItem, createWallet, sellItemFromInventory, type WalletState } from "../systems/economy/economy";
 import { createInventory, type InventoryState } from "../systems/inventory/inventory";
 import { PLAYER_SPEED, createPlayerModel } from "../entities/Player";
+import { completeObjective, createQuestState, type QuestState } from "../systems/quests/quests";
 import { saveToStorage, type GameSaveData } from "../systems/save/save";
 import { getTransition } from "../systems/world/transitions";
 
@@ -9,7 +10,9 @@ export class VillageScene extends Phaser.Scene {
   private buyKey?: Phaser.Input.Keyboard.Key;
   private inventory!: InventoryState;
   private interactKey?: Phaser.Input.Keyboard.Key;
+  private forestGate?: Phaser.GameObjects.Rectangle;
   private player?: Phaser.GameObjects.Rectangle;
+  private questState!: QuestState;
   private saveKey?: Phaser.Input.Keyboard.Key;
   private sellKey?: Phaser.Input.Keyboard.Key;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -32,9 +35,13 @@ export class VillageScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, 960, 540);
 
     this.inventory = (this.registry.get("inventoryState") as InventoryState | undefined) ?? createInventory(8);
+    this.questState = (this.registry.get("questState") as QuestState | undefined) ?? createQuestState();
     this.wallet = (this.registry.get("walletState") as WalletState | undefined) ?? createWallet();
     this.registry.set("inventoryState", this.inventory);
+    this.registry.set("questState", this.questState);
     this.registry.set("walletState", this.wallet);
+    completeObjective(this.questState, "meet_shopkeeper");
+    this.registry.set("questText", this.questState.currentObjectiveText);
 
     this.buyKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.B);
     this.interactKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
@@ -77,10 +84,22 @@ export class VillageScene extends Phaser.Scene {
       fontFamily: "monospace",
       fontSize: "16px",
     });
+    this.add.text(48, 184, "Forest gate opens after tutorial tasks", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "16px",
+    });
 
     this.farmGate = this.add.rectangle(248, 320, 28, 44, 0xc89b5b, 0.9);
     this.farmGate.setStrokeStyle(2, 0x5e3b1f);
     this.add.text(222, 348, "Farm", {
+      color: "#f7f3c8",
+      fontFamily: "monospace",
+      fontSize: "14px",
+    });
+    this.forestGate = this.add.rectangle(440, 320, 32, 52, 0x4c8c4a, 0.95);
+    this.forestGate.setStrokeStyle(2, 0x17311b);
+    this.add.text(412, 352, "Forest", {
       color: "#f7f3c8",
       fontFamily: "monospace",
       fontSize: "14px",
@@ -120,7 +139,12 @@ export class VillageScene extends Phaser.Scene {
     }
 
     if (this.sellKey && Phaser.Input.Keyboard.JustDown(this.sellKey)) {
-      sellItemFromInventory(this.wallet, this.inventory, "radish", 1);
+      const result = sellItemFromInventory(this.wallet, this.inventory, "radish", 1);
+      if (result.ok) {
+        completeObjective(this.questState, "sell_first_crop");
+        this.registry.set("questState", this.questState);
+        this.registry.set("questText", this.questState.currentObjectiveText);
+      }
       this.syncHud();
     }
 
@@ -128,23 +152,37 @@ export class VillageScene extends Phaser.Scene {
       this.saveCurrentState("Saved in village");
     }
 
-    if (
-      this.interactKey &&
-      Phaser.Input.Keyboard.JustDown(this.interactKey) &&
-      this.player &&
-      this.farmGate
-    ) {
-      const distance = Phaser.Math.Distance.Between(
-        this.player.x,
-        this.player.y,
-        this.farmGate.x,
-        this.farmGate.y,
-      );
-      if (distance < 40) {
-        const transition = getTransition("village_gate");
-        this.scene.start(transition.targetScene, {
-          transitionId: transition.targetTransitionId,
-        });
+    if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey) && this.player) {
+      if (this.farmGate) {
+        const farmDistance = Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          this.farmGate.x,
+          this.farmGate.y,
+        );
+        if (farmDistance < 40) {
+          const transition = getTransition("village_gate");
+          this.scene.start(transition.targetScene, {
+            transitionId: transition.targetTransitionId,
+          });
+          return;
+        }
+      }
+
+      if (this.forestGate) {
+        const forestDistance = Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          this.forestGate.x,
+          this.forestGate.y,
+        );
+        if (forestDistance < 44) {
+          if (this.questState.unlockedZones.includes("forest")) {
+            this.scene.start("ForestScene");
+          } else {
+            this.registry.set("saveStatus", "Forest gate is still locked");
+          }
+        }
       }
     }
   }
@@ -157,6 +195,7 @@ export class VillageScene extends Phaser.Scene {
 
     this.registry.set("gold", this.wallet.gold);
     this.registry.set("inventory", summary ? `Inventory ${summary}` : "Inventory empty");
+    this.registry.set("questText", this.questState.currentObjectiveText);
   }
 
   private saveCurrentState(status: string): void {
